@@ -1,0 +1,14 @@
+{"version": 7,
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/leanprover/lean4-cli.git",
+   "type": "git",
+   "subDir": null,
+   "rev": "be8fa79a28b8b6897dce0713ef50e89c4a0f6ef5",
+   "name": "Cli",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "main",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
+ "name": "ELFSage",
+ "lakeDir": ".lake"}
