@@ -30,11 +30,10 @@ structure ELF64SectionHeaderTableEntry where
 def SHT_NULL : elf64_word := 0
 /-- Section holds information defined by the program. -/
 def SHT_PROGBITS : elf64_word := 1
-/-- The following two section types hold a symbol table.  An object file may only
-    have one symbol table of each of the respective types.  The symtab provides
-    a place for link editing, whereas the dynsym section holds a minimal set of
-    dynamic linking symbols -/
+/-- Section holds a symbol table. The symtab provides a place for link editing. -/
 def SHT_SYMTAB : elf64_word := 2
+/-- Section holds a symbol table. The dynsym section holds a minimal set of
+    dynamic linking symbols -/
 def SHT_DYNSYM : elf64_word := 11
 /-- Section holds a string table -/
 def SHT_STRTAB : elf64_word := 3
