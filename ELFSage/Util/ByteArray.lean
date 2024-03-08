@@ -50,7 +50,6 @@ https://github.com/risc0/risc0-lean4/blob/31c956fc9246bbfc84359021d66ed94972afd8
 And just have some runtime error possibilities, rather than proof obligations. 
 -/
 
---TODO: Fix to preserve ordering
 def ByteArray.getEntriesFrom 
   (bs : ByteArray) 
   (offset : Nat) 
@@ -60,10 +59,10 @@ def ByteArray.getEntriesFrom
   (suffSize : entsize ≥ entreq)
   (spaceAvail : bs.size ≥ offset + num * entsize)
   (toEnt :  (offset₂ : Nat) → (bs.size - offset₂ ≥ entreq) → α)
-  : List α := recur num (by omega)
-  where recur (idx : Nat) (h₁ : idx ≤ num) : List α 
+  : List α := recur num [] (by omega)
+  where recur (idx : Nat) acc (h₁ : idx ≤ num) : List α 
   := match idx with
-    | 0 => []
+    | 0 => acc
     | i + 1 => 
       let ent := toEnt (offset + (i * entsize)) (by 
         have h₂ : num * entsize ≥ i * entsize + entsize := by           
@@ -73,4 +72,4 @@ def ByteArray.getEntriesFrom
           exact Nat.mul_le_mul_right entsize h₁
         omega  
       );
-      ent :: recur i (by omega)
+      recur i (ent :: acc) (by omega)
