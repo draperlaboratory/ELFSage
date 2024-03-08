@@ -39,33 +39,18 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
     return 1
   else
     IO.println $ repr header
-    --DRY THIS
-    for h₃ : idx in [0:phnum] do
-      have fits : bytes.size - (phoff + idx * phentsize) ≥ 56 := by
-        have fits₀ : (idx + 1) * phentsize ≤ phnum * phentsize := by
-          apply Nat.mul_le_mul_right
-          exact h₃.right
-        have fits₁ : idx * phentsize + phentsize ≤ phnum * phentsize := by
-          rw [Nat.mul_comm]
-          rw [←Nat.mul_succ]
-          rw [Nat.mul_comm]
-          assumption
-        omega
-      let entry := mkELF64ProgramHeaderTableEntry True bytes (phoff + idx * phentsize) fits
-      IO.println s!"\nprogram header {idx}:\n"
-      IO.println $ repr entry
-    for h₃ : idx in [0:shnum] do
-      have fits : bytes.size - (shoff + idx * shentsize) ≥ 64 := by
-        have fits₀ : (idx + 1) * shentsize ≤ shnum * shentsize := by
-          apply Nat.mul_le_mul_right
-          exact h₃.right
-        have fits₁ : idx * shentsize + shentsize ≤ shnum * shentsize := by
-          rw [Nat.mul_comm]
-          rw [←Nat.mul_succ]
-          rw [Nat.mul_comm]
-          assumption
-        omega
-      let entry := mkELF64SectionHeaderTableEntry True bytes (shoff + idx * shentsize) fits
-      IO.println s!"\nsection header {idx}:\n"
-      IO.println $ repr entry
+    let phentries := List.reverse $ 
+      bytes.getEntriesFrom phoff phnum phentsize 56 (by omega) (by omega) (mkELF64ProgramHeaderTableEntry True bytes)
+    let mut phidx ← pure 0
+    for ent in phentries do
+      phidx ← pure $ phidx + 1
+      IO.println $ s!"\nProgram Header {phidx}\n"
+      IO.println $ repr ent
+    let shentries := List.reverse $ 
+      bytes.getEntriesFrom shoff shnum shentsize 64 (by omega) (by omega) (mkELF64SectionHeaderTableEntry True bytes)
+    let mut shidx ← pure 0
+    for ent in shentries do
+      shidx ← pure $ shidx + 1
+      IO.println $ s!"\nSection Header {shidx}\n"
+      IO.println $ repr ent
     return 0
