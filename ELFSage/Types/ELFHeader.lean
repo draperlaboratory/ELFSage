@@ -4,21 +4,35 @@ import ELFSage.Util.ByteArray
 -- TODO: should the ID field be a separate structure?
 -- TODO: is the elf64_ prefix kind of redundant?
 structure ELF64Header where
-   elf64_ident    : List UInt8    -- Identification field
-   elf64_type     : elf64_half    -- The object file type
-   elf64_machine  : elf64_half    -- Required machine architecture
-   elf64_version  : elf64_word    -- Object file version
-   elf64_entry    : elf64_addr    -- Virtual address for transfer of control
-   elf64_phoff    : elf64_off     -- Program header table offset in bytes
-   elf64_shoff    : elf64_off     -- Section header table offset in bytes
-   elf64_flags    : elf64_word    -- Processor-specific flags
-   elf64_ehsize   : elf64_half    -- ELF header size in bytes
-   elf64_phentsize: elf64_half    -- Program header table entry size in bytes
-   elf64_phnum    : elf64_half    -- Number of entries in program header table
-   elf64_shentsize: elf64_half    -- Section header table entry size in bytes
-   elf64_shnum    : elf64_half    -- Number of entries in section header table
-   elf64_shstrndx : elf64_half    -- Section header table entry for section name string table
-   deriving Repr
+  /-- Identification field -/
+  elf64_ident    : List UInt8
+  /-- The object file type -/
+  elf64_type     : elf64_half
+  /-- Required machine architecture -/
+  elf64_machine  : elf64_half
+  /-- Object file version -/
+  elf64_version  : elf64_word
+  /-- Virtual address for transfer of control -/
+  elf64_entry    : elf64_addr
+  /-- Program header table offset in bytes -/
+  elf64_phoff    : elf64_off
+  /-- Section header table offset in bytes -/
+  elf64_shoff    : elf64_off
+  /-- Processor-specific flags -/
+  elf64_flags    : elf64_word
+  /-- ELF header size in bytes -/
+  elf64_ehsize   : elf64_half
+  /-- Program header table entry size in bytes -/
+  elf64_phentsize: elf64_half
+  /-- Number of entries in program header table -/
+  elf64_phnum    : elf64_half
+  /-- Section header table entry size in bytes -/
+  elf64_shentsize: elf64_half
+  /-- Number of entries in section header table -/
+  elf64_shnum    : elf64_half
+  /-- Section header table entry for section name string table -/
+  elf64_shstrndx : elf64_half
+  deriving Repr
 
 /-- A simple parser for extracting an ELF header, just a test, no validation -/
 def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := { 
@@ -36,7 +50,7 @@ def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := {
   elf64_shentsize := getUInt16from 0x3A (by omega),
   elf64_shnum     := getUInt16from 0x3C (by omega),
   elf64_shstrndx  := getUInt16from 0x3E (by omega),
-} where 
+} where
   isBigEndian := bs.get ⟨0x5,by omega⟩ == 1
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
   getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom

@@ -2,18 +2,24 @@ import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
 structure ELF64SymbolTableEntry where
-  elf64_st_name  : elf64_word     -- Index into the object file's string table 
-  elf64_st_info  : UInt8          -- Specifies the symbol's type and binding attributes 
-  elf64_st_other : UInt8          -- Currently specifies the symbol's visibility 
-  elf64_st_shndx : elf64_half     -- Section header index symbol is defined with respect to 
-  elf64_st_value : elf64_addr     -- Gives the value of the associated symbol 
-  elf64_st_size  : elf64_xword    -- Size of the associated symbol
+  /-- Index into the object file's string table -/
+  elf64_st_name  : elf64_word
+  /-- Specifies the symbol's type and binding attributes -/
+  elf64_st_info  : UInt8
+  /-- Currently specifies the symbol's visibility -/
+  elf64_st_other : UInt8
+  /-- Section header index symbol is defined with respect to -/
+  elf64_st_shndx : elf64_half
+  /-- Gives the value of the associated symbol -/
+  elf64_st_value : elf64_addr
+  /-- Size of the associated symbol -/
+  elf64_st_size  : elf64_xword
   deriving Repr
 
 def mkELF64SymbolTableEntry
   (isBigEndian : Bool)
-  (bs : ByteArray) 
-  (offset : Nat) 
+  (bs : ByteArray)
+  (offset : Nat)
   (h : bs.size - offset ≥ 0x18) :
   ELF64SymbolTableEntry := {
     elf64_st_name  := getUInt32from (offset + 0x00) (by omega),

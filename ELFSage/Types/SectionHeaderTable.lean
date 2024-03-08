@@ -2,16 +2,26 @@ import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
 structure ELF64SectionHeaderTableEntry where
-  elf64_sh_name      : elf64_word  -- Name of the section
-  elf64_sh_type      : elf64_word  -- Type of the section and its semantics
-  elf64_sh_flags     : elf64_xword -- Flags associated with the section
-  elf64_sh_addr      : elf64_addr  -- Address of first byte of section in memory image
-  elf64_sh_offset    : elf64_off   -- Offset from beginning of file of first byte of section
-  elf64_sh_size      : elf64_xword -- Section size in bytes
-  elf64_sh_link      : elf64_word  -- Section header table index link
-  elf64_sh_info      : elf64_word  -- Extra information, contents depends on type of section
-  elf64_sh_addralign : elf64_xword -- Alignment constraints for section
-  elf64_sh_entsize   : elf64_xword -- Size of each entry in table, if section is one
+  /-- Name of the section -/
+  elf64_sh_name      : elf64_word
+  /-- Type of the section and its semantics -/
+  elf64_sh_type      : elf64_word
+  /-- Flags associated with the section -/
+  elf64_sh_flags     : elf64_xword
+  /-- Address of first byte of section in memory image -/
+  elf64_sh_addr      : elf64_addr
+  /-- Offset from beginning of file of first byte of section -/
+  elf64_sh_offset    : elf64_off
+  /-- Section size in bytes -/
+  elf64_sh_size      : elf64_xword
+  /-- Section header table index link -/
+  elf64_sh_link      : elf64_word
+  /-- Extra information, contents depends on type of section -/
+  elf64_sh_info      : elf64_word
+  /-- Alignment constraints for section -/
+  elf64_sh_addralign : elf64_xword
+  /-- Size of each entry in table, if section is composed of entries. Otherwise zero. -/
+  elf64_sh_entsize   : elf64_xword
   deriving Repr
 
 /- XXX: Should these be a big enum? -/
@@ -68,8 +78,8 @@ def SHT_SYMTAB_SHNDX : elf64_word := 18
 
 def mkELF64SectionHeaderTableEntry
   (isBigEndian : Bool)
-  (bs : ByteArray) 
-  (offset : Nat) 
+  (bs : ByteArray)
+  (offset : Nat)
   (h : bs.size - offset ≥ 0x40) :
   ELF64SectionHeaderTableEntry := {
     elf64_sh_name      := getUInt32from (offset + 0x00) (by omega),

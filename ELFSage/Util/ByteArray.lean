@@ -20,7 +20,6 @@ def ByteArray.getUInt16LEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offs
   (bs.get ⟨offset + 0, by omega⟩).toUInt16 <<< 0x08 |||
   (bs.get ⟨offset + 1, by omega⟩).toUInt16
 
-
 --BigEndian
 
 def ByteArray.getUInt64BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 := 
@@ -50,9 +49,9 @@ https://github.com/risc0/risc0-lean4/blob/31c956fc9246bbfc84359021d66ed94972afd8
 And just have some runtime error possibilities, rather than proof obligations. 
 -/
 
-def ByteArray.getEntriesFrom 
-  (bs : ByteArray) 
-  (offset : Nat) 
+def ByteArray.getEntriesFrom
+  (bs : ByteArray)
+  (offset : Nat)
   (num : Nat)
   (entsize : Nat)
   (entreq : Nat)
@@ -63,13 +62,12 @@ def ByteArray.getEntriesFrom
   where recur (idx : Nat) acc (h₁ : idx ≤ num) : List α 
   := match idx with
     | 0 => acc
-    | i + 1 => 
-      let ent := toEnt (offset + (i * entsize)) (by 
-        have h₂ : num * entsize ≥ i * entsize + entsize := by           
+    | i + 1 =>
+      let ent := toEnt (offset + (i * entsize)) $ by
+        have h₂ : num * entsize ≥ i * entsize + entsize := by
           conv => rhs; rw [Nat.mul_comm]
           rw [←Nat.mul_succ]
           conv => rhs; rw [Nat.mul_comm]
           exact Nat.mul_le_mul_right entsize h₁
-        omega  
-      );
+        omega
       recur i (ent :: acc) (by omega)
