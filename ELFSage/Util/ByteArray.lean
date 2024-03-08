@@ -1,4 +1,3 @@
-
 --LittleEndian
 
 def ByteArray.getUInt64LEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 := 
@@ -43,3 +42,10 @@ def ByteArray.getUInt32BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offs
 def ByteArray.getUInt16BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 2) : UInt16 := 
   (bs.get ⟨offset + 1, by omega⟩).toUInt16 <<< 0x08 |||
   (bs.get ⟨offset + 0, by omega⟩).toUInt16
+
+/- An alternative approach is to define a byte parsing monad, à la:
+
+https://github.com/risc0/risc0-lean4/blob/31c956fc9246bbfc84359021d66ed94972afd86b/R0sy/ByteDeserial.lean
+
+And just have some runtime error possibilities, rather than proof obligations. 
+-/

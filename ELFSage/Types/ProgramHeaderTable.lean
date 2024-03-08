@@ -18,20 +18,20 @@ structure ELF64ProgramHeaderTableEntry where
   need all 56 bytes for stuff
 -/
 def mkELF64ProgramHeaderTableEntry 
+  (isBigEndian : Bool)
   (bs : ByteArray) 
   (offset : Nat) 
-  (isBigEndian : Bool)
   (h : bs.size - offset ≥ 0x38) :
   ELF64ProgramHeaderTableEntry := {
-  elf64_p_type   := getUInt32from (offset + 0x00) (by omega), 
-  elf64_p_flags  := getUInt32from (offset + 0x04) (by omega),
-  elf64_p_offset := getUInt64from (offset + 0x08) (by omega),
-  elf64_p_vaddr  := getUInt64from (offset + 0x10) (by omega),
-  elf64_p_paddr  := getUInt64from (offset + 0x18) (by omega),
-  elf64_p_filesz := getUInt64from (offset + 0x20) (by omega),
-  elf64_p_memsz  := getUInt64from (offset + 0x28) (by omega),
-  elf64_p_align  := getUInt64from (offset + 0x30) (by omega),
-} where
-  getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
-  getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
-  getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
+    elf64_p_type   := getUInt32from (offset + 0x00) (by omega), 
+    elf64_p_flags  := getUInt32from (offset + 0x04) (by omega),
+    elf64_p_offset := getUInt64from (offset + 0x08) (by omega),
+    elf64_p_vaddr  := getUInt64from (offset + 0x10) (by omega),
+    elf64_p_paddr  := getUInt64from (offset + 0x18) (by omega),
+    elf64_p_filesz := getUInt64from (offset + 0x20) (by omega),
+    elf64_p_memsz  := getUInt64from (offset + 0x28) (by omega),
+    elf64_p_align  := getUInt64from (offset + 0x30) (by omega),
+  } where
+    getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
+    getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
+    getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
