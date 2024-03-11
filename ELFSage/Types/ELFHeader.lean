@@ -61,7 +61,7 @@ def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := {
   elf64_shnum     := getUInt16from 0x3C (by omega),
   elf64_shstrndx  := getUInt16from 0x3E (by omega),
 } where
-  isBigEndian := bs.get ⟨0x5,by omega⟩ == 1
+  isBigEndian := bs.get ⟨0x5,by omega⟩ == 2
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
   getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
   getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom

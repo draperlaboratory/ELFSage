@@ -8,6 +8,7 @@ import ELFSage.Types.StringTable
 
 def ByteArray.printSymbolTableFor 
   (bs : ByteArray)
+  (isBigendian : Bool)
   (shent : ELF64SectionHeaderTableEntry)
   : IO Bool
   := do
@@ -26,7 +27,7 @@ def ByteArray.printSymbolTableFor
         s! "Something's wrong. There's not enough room for a symbol table's entries"
       return False
     else
-      let symbols := bs.getEntriesFrom sh_offset sym_count sh_entsize 0x18 (by omega) (by omega) (mkELF64SymbolTableEntry True bs)
+      let symbols := bs.getEntriesFrom sh_offset sym_count sh_entsize 0x18 (by omega) (by omega) (mkELF64SymbolTableEntry isBigendian bs)
       let mut symidx ← pure 0
       for symbol in symbols do
         symidx ← pure $ symidx + 1
@@ -62,13 +63,14 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
   else
 
   --XXX we probably want a uniform asNat interface for 64/32 bit ELF headers, etc
-  let header    := mkELF64Header bytes (by omega)
-  let phoff     := header.elf64_phoff.toNat
-  let phentsize := header.elf64_phentsize.toNat
-  let phnum     := header.elf64_phnum.toNat
-  let shoff     := header.elf64_shoff.toNat
-  let shentsize := header.elf64_shentsize.toNat
-  let shnum     := header.elf64_shnum.toNat
+  let elfheader := mkELF64Header bytes (by omega)
+  let phoff     := elfheader.elf64_phoff.toNat
+  let phentsize := elfheader.elf64_phentsize.toNat
+  let phnum     := elfheader.elf64_phnum.toNat
+  let shoff     := elfheader.elf64_shoff.toNat
+  let shentsize := elfheader.elf64_shentsize.toNat
+  let shnum     := elfheader.elf64_shnum.toNat
+  let isBigendian := ELFIdent.isBigendian elfheader
 
   if havePHSpace : bytes.size < phoff + phnum * phentsize then
     IO.println "Something's wrong. There's not enough room for the program header table."
@@ -87,16 +89,16 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
       ++ " but you need at least 64 bytes to fit everything in there."
     return 1
   else
-    IO.println $ repr header
+    IO.println $ repr elfheader
 
-    let phentries := bytes.getEntriesFrom phoff phnum phentsize 56 (by omega) (by omega) (mkELF64ProgramHeaderTableEntry True bytes)
+    let phentries := bytes.getEntriesFrom phoff phnum phentsize 56 (by omega) (by omega) (mkELF64ProgramHeaderTableEntry isBigendian bytes)
     let mut phidx ← pure 0
     for ent in phentries do
       phidx ← pure $ phidx + 1
       IO.println $ s!"\nProgram Header {phidx}\n"
       IO.println $ repr ent
 
-    let shentries := bytes.getEntriesFrom shoff shnum shentsize 64 (by omega) (by omega) (mkELF64SectionHeaderTableEntry True bytes)
+    let shentries := bytes.getEntriesFrom shoff shnum shentsize 64 (by omega) (by omega) (mkELF64SectionHeaderTableEntry isBigendian bytes)
     let mut shidx ← pure 0
     for ent in shentries do
       shidx ← pure $ shidx + 1
@@ -108,7 +110,7 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
     for ent in symtabs do
       symtabidx ← pure $ symtabidx + 1
       IO.println $ s!"\nSymbol Table {symtabidx}\n"
-      let val ← bytes.printSymbolTableFor ent
+      let val ← bytes.printSymbolTableFor isBigendian ent
       if !val then return 1
 
     let strtabs := shentries.filter (λshe => she.elf64_sh_type ∈ [SHT_STRTAB])
