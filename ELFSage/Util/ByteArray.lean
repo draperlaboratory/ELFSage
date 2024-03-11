@@ -71,3 +71,64 @@ def ByteArray.getEntriesFrom
           exact Nat.mul_le_mul_right entsize h₁
         omega
       recur i (ent :: acc) (by omega)
+
+structure NByteArray (n : Nat) where
+  bytes: ByteArray
+  sized: bytes.size = n
+
+instance : Repr (NByteArray n) where
+  reprPrec nbs := reprPrec nbs.bytes.toList
+
+theorem Array.extract_len_aux {src: Array α} :
+   ∀b l dst, (b + l ≤ src.size) →
+   List.length (Array.extract.loop src b l dst).data = b + dst.size:= by
+   intro b
+   induction b
+   case zero => simp [Array.extract.loop]
+   case succ => 
+     rename_i n ih
+     intro l dst
+     unfold Array.extract.loop
+     intro lt
+     simp; split
+     · have : n + l + 1 ≤ size src := by omega
+       rw [ih (l + 1) (push dst src[l]) this]
+       simp_arith
+     · omega
+
+theorem Array.extract_loop_len {src : Array α} :
+  ∀ b l dst,
+   (b + l ≤ src.size) →
+   (Array.extract.loop src b l dst).size = b + dst.size:= by
+  intro i s e h
+  rw [Array.size]
+  apply Array.extract_len_aux _ _ _ h
+
+def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size > n) : NByteArray n :=
+  let bytes := bs.extract 0 n
+  let proof : bytes.size = n := by
+      simp [ ByteArray.size
+           , ByteArray.extract
+           , ByteArray.copySlice
+           , Array.extract
+           , ByteArray.empty
+           , ByteArray.mkEmpty
+           ]
+      have : ∀α, ∀n : Nat, @Array.extract.loop α #[] 0 n #[] = #[] := by 
+        unfold Array.extract.loop
+        split; simp; contradiction
+      rw [this, this]
+      have : ∀α, ∀a b : Array α, (a ++ b).size = a.size + b.size := by
+        simp [Array.size]
+      rw [this, this]
+      simp
+      have :  0 + (min n (List.length bs.data.data)) ≤ bs.size := by
+        rw [Nat.min_def]
+        split <;> omega
+      rw [Array.extract_loop_len (min n (List.length bs.data.data)) 0 #[]]
+      simp [Nat.min_def, ByteArray.size, Array.size] at *
+      · omega
+      · simp [Nat.min_def]; split
+        · assumption
+        · simp [Nat.min_def, ByteArray.size, Array.size] at *
+    ⟨bytes, proof⟩

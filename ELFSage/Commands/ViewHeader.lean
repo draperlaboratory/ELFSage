@@ -62,13 +62,13 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
   else
 
   --XXX we probably want a uniform asNat interface for 64/32 bit ELF headers, etc
-  let header := mkELF64Header bytes (by omega)
-  let phoff  := header.elf64_phoff.toNat
-  let phentsize  := header.elf64_phentsize.toNat
-  let phnum  := header.elf64_phnum.toNat
-  let shoff  := header.elf64_shoff.toNat
-  let shentsize  := header.elf64_shentsize.toNat
-  let shnum  := header.elf64_shnum.toNat
+  let header    := mkELF64Header bytes (by omega)
+  let phoff     := header.elf64_phoff.toNat
+  let phentsize := header.elf64_phentsize.toNat
+  let phnum     := header.elf64_phnum.toNat
+  let shoff     := header.elf64_shoff.toNat
+  let shentsize := header.elf64_shentsize.toNat
+  let shnum     := header.elf64_shnum.toNat
 
   if havePHSpace : bytes.size < phoff + phnum * phentsize then
     IO.println "Something's wrong. There's not enough room for the program header table."

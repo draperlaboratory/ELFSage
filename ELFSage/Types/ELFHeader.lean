@@ -1,11 +1,17 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
--- TODO: should the ID field be a separate structure?
+/-- Represents the ELF header's ident field structure -/
+class ELFIdent (α : Type) where
+  /-- is the ELF binary bigendian? -/
+  isBigendian : α → Bool
+  /-- Does the ELF file use 64 bit addresses? -/
+  is64Bit     : α → Bool
+
 -- TODO: is the elf64_ prefix kind of redundant?
 structure ELF64Header where
   /-- Identification field -/
-  elf64_ident    : List UInt8
+  elf64_ident    : NByteArray 16
   /-- The object file type -/
   elf64_type     : elf64_half
   /-- Required machine architecture -/
@@ -34,9 +40,13 @@ structure ELF64Header where
   elf64_shstrndx : elf64_half
   deriving Repr
 
+instance : ELFIdent ELF64Header where
+  isBigendian h := let ⟨bytes, _⟩ := h.elf64_ident; bytes[0x5] == 2
+  is64Bit h := let ⟨bytes, _⟩ := h.elf64_ident; bytes[0x4] == 2 --should never be false
+
 /-- A simple parser for extracting an ELF header, just a test, no validation -/
 def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := { 
-  elf64_ident     := (bs.extract 0x0 0x9).toList
+  elf64_ident     := NByteArray.extract bs 0x10 (by omega),
   elf64_type      := getUInt16from 0x10 (by omega),
   elf64_machine   := getUInt16from 0x12 (by omega),
   elf64_version   := getUInt32from 0x14 (by omega),
