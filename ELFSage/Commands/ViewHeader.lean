@@ -12,9 +12,9 @@ def ByteArray.printSymbolTableFor
   (shent : ELF64SectionHeaderTableEntry)
   : IO Bool
   := do
-    let sh_size := shent.elf64_sh_size.toNat
-    let sh_entsize := shent.elf64_sh_entsize.toNat
-    let sh_offset  := shent.elf64_sh_offset.toNat
+    let sh_size := shent.sh_size.toNat
+    let sh_entsize := shent.sh_entsize.toNat
+    let sh_offset  := shent.sh_offset.toNat
     let sym_count : Nat := sh_size / sh_entsize
 
     if haveSHEntSpace : sh_entsize < 24 then
@@ -39,8 +39,8 @@ def ByteArray.printStringTableFor
   (bs : ByteArray)
   (stent : ELF64SectionHeaderTableEntry)
   : IO Bool := do
-  let sh_size := stent.elf64_sh_size.toNat
-  let sh_offset  := stent.elf64_sh_offset.toNat
+  let sh_size := stent.sh_size.toNat
+  let sh_offset  := stent.sh_offset.toNat
 
   if haveSTSpace : bs.size < sh_offset + sh_size then
     IO.println $
@@ -64,12 +64,12 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
 
   --XXX we probably want a uniform asNat interface for 64/32 bit ELF headers, etc
   let elfheader := mkELF64Header bytes (by omega)
-  let phoff     := elfheader.elf64_phoff.toNat
-  let phentsize := elfheader.elf64_phentsize.toNat
-  let phnum     := elfheader.elf64_phnum.toNat
-  let shoff     := elfheader.elf64_shoff.toNat
-  let shentsize := elfheader.elf64_shentsize.toNat
-  let shnum     := elfheader.elf64_shnum.toNat
+  let phoff     := elfheader.phoff.toNat
+  let phentsize := elfheader.phentsize.toNat
+  let phnum     := elfheader.phnum.toNat
+  let shoff     := elfheader.shoff.toNat
+  let shentsize := elfheader.shentsize.toNat
+  let shnum     := elfheader.shnum.toNat
   let isBigendian := ELFIdent.isBigendian elfheader
 
   if havePHSpace : bytes.size < phoff + phnum * phentsize then
@@ -105,7 +105,7 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
       IO.println $ s!"\nSection Header {shidx}\n"
       IO.println $ repr ent
 
-    let symtabs := shentries.filter (λshe => she.elf64_sh_type ∈ [SHT_SYMTAB, SHT_DYNSYM])
+    let symtabs := shentries.filter (λshe => she.sh_type ∈ [SHT_SYMTAB, SHT_DYNSYM])
     let mut symtabidx ← pure 0
     for ent in symtabs do
       symtabidx ← pure $ symtabidx + 1
@@ -113,7 +113,7 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
       let val ← bytes.printSymbolTableFor isBigendian ent
       if !val then return 1
 
-    let strtabs := shentries.filter (λshe => she.elf64_sh_type ∈ [SHT_STRTAB])
+    let strtabs := shentries.filter (λshe => she.sh_type ∈ [SHT_STRTAB])
     let mut strtabidx ← pure 0
     for ent in strtabs do
       strtabidx ← pure $ symtabidx + 1
