@@ -1,9 +1,8 @@
 import Cli
 import ELFSage.Util.Cli
 import ELFSage.Types.ELFHeader
-import ELFSage.Types.ELF32Header
-import ELFSage.Types.ELF64Header
 import ELFSage.Types.ProgramHeaderTable
+import ELFSage.Constants.SectionHeaderTable
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
 import ELFSage.Types.StringTable
@@ -107,7 +106,8 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
       IO.println $ s!"\nSection Header {shidx}\n"
       IO.println $ repr ent
 
-    let symtabs := shentries.filter (λshe => she.sh_type ∈ [SHT_SYMTAB, SHT_DYNSYM])
+    let symbol_table_types := [ELFSectionHeaderTableEntry.Type.SHT_SYMTAB, ELFSectionHeaderTableEntry.Type.SHT_DYNSYM]
+    let symtabs := shentries.filter (λshe => she.sh_type.toNat ∈ symbol_table_types)
     let mut symtabidx ← pure 0
     for ent in symtabs do
       symtabidx ← pure $ symtabidx + 1
@@ -115,7 +115,7 @@ def runViewHeaderCmd (p : Cli.Parsed): IO UInt32 := do
       let val ← bytes.printSymbolTableFor isBigendian ent
       if !val then return 1
 
-    let strtabs := shentries.filter (λshe => she.sh_type ∈ [SHT_STRTAB])
+    let strtabs := shentries.filter (λshe => she.sh_type.toNat ∈ [ELFSectionHeaderTableEntry.Type.SHT_STRTAB])
     let mut strtabidx ← pure 0
     for ent in strtabs do
       strtabidx ← pure $ symtabidx + 1
