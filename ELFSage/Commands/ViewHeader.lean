@@ -1,6 +1,8 @@
 import Cli
 import ELFSage.Util.Cli
 import ELFSage.Types.ELFHeader
+import ELFSage.Types.ELF32Header
+import ELFSage.Types.ELF64Header
 import ELFSage.Types.ProgramHeaderTable
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
