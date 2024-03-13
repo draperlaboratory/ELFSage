@@ -1,6 +1,7 @@
 import Cli
 import ELFSage.Util.Cli
 import ELFSage.Types.ELFHeader
+import ELFSage.Types.ProgramHeaderTable
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented := 
@@ -46,9 +47,9 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
 
   match mkRawELFHeader? bytes with
   | .error warn => IO.println warn *> return 1
-  | .ok header => do
+  | .ok elfheader => do
 
   if p.hasFlag "file-header" 
-  then IO.println $ repr header
+  then IO.println $ repr elfheader
 
   return 0
