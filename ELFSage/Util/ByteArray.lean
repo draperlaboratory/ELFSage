@@ -104,7 +104,7 @@ theorem Array.extract_loop_len {src : Array α} :
   rw [Array.size]
   apply Array.extract_len_aux _ _ _ h
 
-def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size > n) : NByteArray n :=
+def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArray n :=
   let bytes := bs.extract 0 n
   let proof : bytes.size = n := by
       simp [ ByteArray.size

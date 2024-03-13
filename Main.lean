@@ -11,14 +11,6 @@ def hexDumpCmd : Cmd := `[Cli|
       targetBinary : System.FilePath; "The ELF binary to be analyzed"
 ]
 
-def viewHeaderCmd : Cmd := `[Cli|
-  viewHeader VIA runViewHeaderCmd; ["0.0.0"]
-  "view the ELF Header of a given binary"
-
-  ARGS:
-      targetBinary : System.FilePath; "The ELF binary to be analyzed"
-]
-
 /- Some major missing flags: DWARF debug information, CTF info -/
 
 /-- an incomplete readelf clone inferface  -/
@@ -70,7 +62,6 @@ def mainCmd : Cmd := `[Cli|
 
   SUBCOMMANDS:
       hexDumpCmd;
-      viewHeaderCmd;
       readCmd
 ]
 
