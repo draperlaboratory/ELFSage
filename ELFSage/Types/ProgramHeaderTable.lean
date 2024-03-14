@@ -39,8 +39,6 @@ structure ELF64ProgramHeaderTableEntry where
   p_align  : elf64_xword
   deriving Repr
 
-
-
 def mkELF64ProgramHeaderTableEntry 
   (isBigEndian : Bool)
   (bs : ByteArray)

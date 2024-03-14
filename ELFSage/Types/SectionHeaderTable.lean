@@ -1,6 +1,29 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
+structure RawSectionHeaderTableEntry where
+  /-- Name of the section -/
+  sh_name      : Nat
+  /-- Type of the section and its semantics -/
+  sh_type      : Nat
+  /-- Flags associated with the section -/
+  sh_flags     : Nat
+  /-- Address of first byte of section in memory image -/
+  sh_addr      : Nat
+  /-- Offset from beginning of file of first byte of section -/
+  sh_offset    : Nat
+  /-- Section size in bytes -/
+  sh_size      : Nat
+  /-- Section header table index link -/
+  sh_link      : Nat
+  /-- Extra information, contents depends on type of section -/
+  sh_info      : Nat
+  /-- Alignment constraints for section -/
+  sh_addralign : Nat
+  /-- Size of each entry in table, if section is composed of entries. Otherwise zero. -/
+  sh_entsize   : Nat
+  deriving Repr
+
 structure ELF64SectionHeaderTableEntry where
   /-- Name of the section -/
   sh_name      : elf64_word
@@ -24,7 +47,6 @@ structure ELF64SectionHeaderTableEntry where
   sh_entsize   : elf64_xword
   deriving Repr
 
-
 def mkELF64SectionHeaderTableEntry
   (isBigEndian : Bool)
   (bs : ByteArray)
@@ -45,6 +67,21 @@ def mkELF64SectionHeaderTableEntry
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
+
+def ELF64SectionHeaderTableEntry.toRawSectionHeaderTableEntry
+  (she : ELF64SectionHeaderTableEntry)
+  : RawSectionHeaderTableEntry := {
+    sh_name      := she.sh_name.toNat
+    sh_type      := she.sh_type.toNat
+    sh_flags     := she.sh_flags.toNat
+    sh_addr      := she.sh_addr.toNat
+    sh_offset    := she.sh_offset.toNat
+    sh_size      := she.sh_size.toNat
+    sh_link      := she.sh_link.toNat
+    sh_info      := she.sh_info.toNat
+    sh_addralign := she.sh_addralign.toNat
+    sh_entsize   := she.sh_entsize.toNat
+  }
 
 structure ELF32SectionHeaderTableEntry where
   /-- Name of the section -/
@@ -89,3 +126,38 @@ def mkELF32SectionHeaderTableEntry
   } where
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
+
+def ELF32SectionHeaderTableEntry.toRawSectionHeaderTableEntry
+  (she : ELF32SectionHeaderTableEntry)
+  : RawSectionHeaderTableEntry := {
+    sh_name      := she.sh_name.toNat
+    sh_type      := she.sh_type.toNat
+    sh_flags     := she.sh_flags.toNat
+    sh_addr      := she.sh_addr.toNat
+    sh_offset    := she.sh_offset.toNat
+    sh_size      := she.sh_size.toNat
+    sh_link      := she.sh_link.toNat
+    sh_info      := she.sh_info.toNat
+    sh_addralign := she.sh_addralign.toNat
+    sh_entsize   := she.sh_entsize.toNat
+  }
+
+def mkRawSectionHeaderTableEntry?
+  (bs : ByteArray)
+  (is64Bit : Bool)
+  (isBigendian : Bool)
+  (offset : Nat)
+  : Except String RawSectionHeaderTableEntry := 
+  match is64Bit with
+  | true   => 
+    if h : bs.size - offset ≥ 0x40 
+    then pure (mkELF64SectionHeaderTableEntry isBigendian bs offset h).toRawSectionHeaderTableEntry
+    else throw $ err 0x38
+  | false  => 
+    if h : bs.size - offset ≥ 0x28 
+    then pure (mkELF32SectionHeaderTableEntry isBigendian bs offset h).toRawSectionHeaderTableEntry
+    else throw $ err 0x28
+  where
+    err size := s!
+      "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
+      "which requires {size} bytes."
