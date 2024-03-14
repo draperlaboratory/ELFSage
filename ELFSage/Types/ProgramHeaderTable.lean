@@ -1,7 +1,7 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
-structure RawELFProgramHeaderTableEntry where
+structure RawProgramHeaderTableEntry where
   /-- Type of the segment -/
   p_type   : Nat
   /-- Segment flags -/
@@ -60,9 +60,9 @@ def mkELF64ProgramHeaderTableEntry
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
 
-def ELF64ProgramHeaderTableEntry.toRawELFProgramHeaderTableEntry 
+def ELF64ProgramHeaderTableEntry.toRawProgramHeaderTableEntry 
   (phe : ELF64ProgramHeaderTableEntry)
-  : RawELFProgramHeaderTableEntry := {
+  : RawProgramHeaderTableEntry := {
     p_type   := phe.p_type.toNat
     p_flags  := phe.p_flags.toNat
     p_offset := phe.p_offset.toNat
@@ -110,9 +110,9 @@ def mkELF32ProgramHeaderTableEntry
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
-def ELF32ProgramHeaderTableEntry.toRawELFProgramHeaderTableEntry 
+def ELF32ProgramHeaderTableEntry.toRawProgramHeaderTableEntry 
   (phe : ELF32ProgramHeaderTableEntry)
-  : RawELFProgramHeaderTableEntry := {
+  : RawProgramHeaderTableEntry := {
     p_type   := phe.p_type.toNat
     p_flags  := phe.p_flags.toNat
     p_offset := phe.p_offset.toNat
@@ -123,20 +123,20 @@ def ELF32ProgramHeaderTableEntry.toRawELFProgramHeaderTableEntry
     p_align  := phe.p_align.toNat
   }
 
-def mkRawELFProgramHeaderTableEntry?
+def mkRawProgramHeaderTableEntry?
   (bs : ByteArray)
-  (offset : Nat)
   (is64Bit : Bool)
   (isBigendian : Bool)
-  : Except String RawELFProgramHeaderTableEntry := 
+  (offset : Nat)
+  : Except String RawProgramHeaderTableEntry := 
   match is64Bit with
   | true   => 
     if h : bs.size - offset ≥ 0x38 
-    then pure (mkELF64ProgramHeaderTableEntry isBigendian bs offset h).toRawELFProgramHeaderTableEntry 
+    then pure (mkELF64ProgramHeaderTableEntry isBigendian bs offset h).toRawProgramHeaderTableEntry 
     else throw $ err 0x38
   | false  => 
     if h : bs.size - offset ≥ 0x20 
-    then pure (mkELF32ProgramHeaderTableEntry isBigendian bs offset h).toRawELFProgramHeaderTableEntry 
+    then pure (mkELF32ProgramHeaderTableEntry isBigendian bs offset h).toRawProgramHeaderTableEntry 
     else throw $ err 0x20
   where
     err size := s!
