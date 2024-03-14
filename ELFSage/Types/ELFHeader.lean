@@ -174,8 +174,8 @@ def ELF32Header.toRawELFHeader (eh : ELF32Header) : RawELFHeader := {
 }
 
 def mkRawELFHeader? (bs : ByteArray) : Except String RawELFHeader :=
-  if h : bs.size < 6 then throw e1
-  else match bs.get ⟨0x5, by omega⟩ with
+  if h : bs.size < 5 then throw e1
+  else match bs.get ⟨0x4, by omega⟩ with
   | 1 => if h : bs.size ≥ 0x34 then pure (mkELF32Header bs h).toRawELFHeader else throw e2
   | 2 => if h : bs.size ≥ 0x40 then pure (mkELF64Header bs h).toRawELFHeader else throw e3
   | _ => throw e4
