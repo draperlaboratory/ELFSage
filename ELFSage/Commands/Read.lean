@@ -5,6 +5,7 @@ import ELFSage.Types.ProgramHeaderTable
 import ELFSage.Constants.SectionHeaderTable
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
+import ELFSage.Types.StringTable
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented := 
@@ -25,7 +26,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
     , "D", "use-dynamic"
     , "L", "lint"
     , "x", "hex-dump"
-    , "p", "string-dump"
     , "R", "relocated-dump"
     , "z", "decompress"
     ]
@@ -82,5 +82,22 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
       match mkRawSymbolTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
       | .error warn => IO.println warn
       | .ok symboltable => IO.println $ repr symboltable
+
+  if p.hasFlag "string-dump"
+  then match p.flag? "string-dump" >>= λarg => arg.as? Nat with
+    | none => IO.println "couldn't parse section number provided for string dump"
+    | some idx =>
+
+    let offset := elfheader.shoff + (idx * elfheader.shentsize)
+    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error _ => IO.println s!"There doesn't appear to be a section header {idx}"
+    | .ok sectionHeader =>
+
+    if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
+    then IO.println "The requested section header {idx} describes a section that overflows the end of the binary"
+    else
+      let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
+      for byte in stringtable do
+        if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
 
   return 0

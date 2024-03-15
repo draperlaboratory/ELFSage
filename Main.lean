@@ -11,7 +11,12 @@ def hexDumpCmd : Cmd := `[Cli|
       targetBinary : System.FilePath; "The ELF binary to be analyzed"
 ]
 
-/- Some major missing flags: DWARF debug information, CTF info -/
+/- Some major missing features:
+
+* DWARF debug information, CTF info 
+* string-dump/hex-dump don't take section names yet 
+
+-/
 
 /-- an incomplete readelf clone inferface  -/
 def readCmd : Cmd := `[Cli|
@@ -46,7 +51,7 @@ def readCmd : Cmd := `[Cli|
     L,  "lint";                 "Display warning messages for possible problems"
     x,  "hex-dump";             "hex-dump=<number|name>. " ++
                                 "Dump the contents of section <number|name> as bytes"
-    p,  "string-dump";          "--string-dump=<number|name>. " ++
+    p,  "string-dump" : Nat;    "--string-dump=<number|name>. " ++
                                 "Dump the contents of section <number|name> as strings"
     R,  "relocated-dump";       "--relocated-dump=<number|name>" ++
                                 "Dump the relocated contents of section <number|name>"
