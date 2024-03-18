@@ -35,6 +35,54 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
+def printProgramHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
+  for idx in [:elfheader.phnum] do
+    IO.println s!"\nProgram Header {idx}\n"
+    let offset := elfheader.phoff + (idx * elfheader.phentsize)
+    match mkRawProgramHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error warn => IO.println warn
+    | .ok programHeader => IO.println $ repr programHeader
+
+def printSectionHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
+  for idx in [:elfheader.shnum] do
+    IO.println s!"\nSection Header {idx}\n"
+    let offset := elfheader.shoff + (idx * elfheader.shentsize)
+    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error warn => IO.println warn
+    | .ok sectionHeader => IO.println $ repr sectionHeader
+
+def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (sectionHeaderEnt : RawSectionHeaderTableEntry) :=
+  for idx in [:sectionHeaderEnt.sh_size / sectionHeaderEnt.sh_entsize] do
+    IO.print s!"Symbol {idx}: "
+    let offset := sectionHeaderEnt.sh_offset + (idx * sectionHeaderEnt.sh_entsize)
+    match mkRawSymbolTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error warn => IO.println warn
+    | .ok symboltable => IO.println $ repr symboltable
+
+def printSymbolsForSectionType (elfheader : RawELFHeader) (bytes : ByteArray) (ent_type : Nat) :=
+  for idx in [:elfheader.shnum] do
+    let offset := elfheader.shoff + (idx * elfheader.shentsize)
+    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error _ => pure ()
+    | .ok sectionHeaderEnt =>
+
+    if sectionHeaderEnt.sh_type != ent_type
+    then pure ()
+    else printSymbolsForSection elfheader bytes sectionHeaderEnt
+
+def printStringsForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : Nat) :=
+  let offset := elfheader.shoff + (idx * elfheader.shentsize)
+  match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+  | .error _ => IO.println s!"There doesn't appear to be a section header {idx}"
+  | .ok sectionHeader =>
+
+  if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
+  then IO.println "The requested section header {idx} describes a section that overflows the end of the binary"
+  else
+    let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
+    for byte in stringtable do
+      if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
+
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   
   match checkImplemented p with
@@ -48,56 +96,23 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   | .error warn => IO.println warn *> return 1
   | .ok elfheader => do
 
-  if p.hasFlag "file-header" ∨ p.hasFlag "headers"
-  then IO.println $ repr elfheader
-
-  if p.hasFlag "program-headers" ∨ p.hasFlag "segments" ∨ p.hasFlag "headers"
-  then for idx in [:elfheader.phnum] do
-    IO.println s!"\nProgram Header {idx}\n"
-    let offset := elfheader.phoff + (idx * elfheader.phentsize)
-    match mkRawProgramHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
-    | .error warn => IO.println warn
-    | .ok programHeader => IO.println $ repr programHeader
-
-  if p.hasFlag "section-headers" ∨ p.hasFlag "sections" ∨ p.hasFlag "headers"
-  then for idx in [:elfheader.shnum] do
-    IO.println s!"\nSection Header {idx}\n"
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
-    | .error warn => IO.println warn
-    | .ok sectionHeader => IO.println $ repr sectionHeader
-
-  if p.hasFlag "dyn-syms"
-  then for idx in [:elfheader.shnum] do
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
-    | .error _ => pure ()
-    | .ok sectionHeader =>
-
-    if sectionHeader.sh_type != ELFSectionHeaderTableEntry.Type.SHT_DYNSYM
-    then pure ()
-    else for idx in [:sectionHeader.sh_size / sectionHeader.sh_entsize] do
-      IO.print s!"Symbol {idx}: "
-      let offset := sectionHeader.sh_offset + (idx * sectionHeader.sh_entsize)
-      match mkRawSymbolTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
-      | .error warn => IO.println warn
-      | .ok symboltable => IO.println $ repr symboltable
-
-  if p.hasFlag "string-dump"
-  then match p.flag? "string-dump" >>= λarg => arg.as? Nat with
-    | none => IO.println "couldn't parse section number provided for string dump"
-    | some idx =>
-
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
-    | .error _ => IO.println s!"There doesn't appear to be a section header {idx}"
-    | .ok sectionHeader =>
-
-    if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
-    then IO.println "The requested section header {idx} describes a section that overflows the end of the binary"
-    else
-      let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
-      for byte in stringtable do
-        if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
+  for flag in p.flags do
+    match flag.flag.longName with
+    | "file-header" => IO.println $ repr elfheader
+    | "headers" => do
+      IO.println $ repr elfheader
+      printProgramHeaders elfheader bytes
+      printSectionHeaders elfheader bytes
+    | "program-headers" => printProgramHeaders elfheader bytes
+    | "segments" => printProgramHeaders elfheader bytes
+    | "section-headers" => printSectionHeaders elfheader bytes
+    | "sections" => printSectionHeaders elfheader bytes
+    | "dyn-syms" => 
+      let type := ELFSectionHeaderTableEntry.Type.SHT_DYNSYM;
+      printSymbolsForSectionType elfheader bytes type
+    | "string-dump" => match flag.as? Nat with
+      | none => IO.println "couldn't parse section number provided for string dump"
+      | some idx => printStringsForSectionIdx elfheader bytes idx
+    | _ => IO.println $ "unrecognized flag: " ++ flag.flag.longName
 
   return 0
