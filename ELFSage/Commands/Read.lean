@@ -43,6 +43,9 @@ def printProgramHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
     | .error warn => IO.println warn
     | .ok programHeader => IO.println $ repr programHeader
 
+-- TODO: sectionNameByOffset and symbolNameByLinkAndOffset should be unified and
+-- put under Types.ELFFile. Should perhaps signify that the symbol name recovery
+-- is a Unix/System V thing rather than an ELF thing: https://refspecs.linuxfoundation.org/elf/elf.pdf
 def sectionNameByOffset (elfheader : RawELFHeader) (bytes : ByteArray) (offset : Nat) : Except String String := 
   let header_offset := elfheader.shoff + (elfheader.shstrndx * elfheader.shentsize)
   match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian header_offset with
@@ -50,6 +53,17 @@ def sectionNameByOffset (elfheader : RawELFHeader) (bytes : ByteArray) (offset :
   | .ok sectionHeader => 
     if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
     then .error "The section header for eh_shstrndx describes a section that overflows the end of the binary"
+    else 
+      let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
+      pure $ stringtable.stringAt offset
+
+def symbolNameByLinkAndOffset (elfheader : RawELFHeader) (bytes : ByteArray) (linkIdx: Nat) (offset : Nat) : Except String String := 
+  let header_offset := elfheader.shoff + (linkIdx * elfheader.shentsize)
+  match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian header_offset with
+  | .error _ => .error "unable to locate the section header table referenced by this symbol table"
+  | .ok sectionHeader => 
+    if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
+    then .error "The section header that the symbol table references describes a section that overflows the end of the binary"
     else 
       let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
       pure $ stringtable.stringAt offset
@@ -63,7 +77,7 @@ def printSectionHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
     | .ok sectionHeader => 
       match sectionNameByOffset elfheader bytes sectionHeader.sh_name with
       | .ok name => IO.print s!"{name}\n"
-      | .error warn => IO.print s!"??? - {warn}"
+      | .error warn => IO.print s!"??? - {warn}¬"
       IO.println $ repr sectionHeader
 
 def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (sectionHeaderEnt : RawSectionHeaderTableEntry) :=
@@ -72,7 +86,11 @@ def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (secti
     let offset := sectionHeaderEnt.sh_offset + (idx * sectionHeaderEnt.sh_entsize)
     match mkRawSymbolTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
     | .error warn => IO.println warn
-    | .ok symboltable => IO.println $ repr symboltable
+    | .ok symbolTableEnt => 
+      match symbolNameByLinkAndOffset elfheader bytes sectionHeaderEnt.sh_link symbolTableEnt.st_name with
+      | .ok name => IO.print s!"{name}\n"
+      | .error warn => IO.print s!"??? - {warn}¬"
+      IO.println $ repr symbolTableEnt
 
 def printSymbolsForSectionType (elfheader : RawELFHeader) (bytes : ByteArray) (ent_type : Nat) :=
   for idx in [:elfheader.shnum] do
