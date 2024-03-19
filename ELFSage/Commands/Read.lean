@@ -12,7 +12,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
     [ "a", "all"
     , "g", "section-groups"
     , "t", "section-details"
-    , "s", "syms", "symbols"
     , "lto-syms"
     , "sym-base"
     , "C", "demangle"
@@ -142,6 +141,9 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
     | "sections" => printSectionHeaders elfheader bytes
     | "dyn-syms" => 
       let type := ELFSectionHeaderTableEntry.Type.SHT_DYNSYM;
+      printSymbolsForSectionType elfheader bytes type
+    | "syms" => 
+      let type := ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
       printSymbolsForSectionType elfheader bytes type
     | "string-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse section number provided for string dump"
