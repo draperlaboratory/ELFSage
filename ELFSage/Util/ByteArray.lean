@@ -79,6 +79,9 @@ structure NByteArray (n : Nat) where
 instance : Repr (NByteArray n) where
   reprPrec nbs := reprPrec nbs.bytes.toList
 
+instance : Repr ByteArray where
+  reprPrec bs := reprPrec bs.data
+
 theorem Array.extract_len_aux {src: Array α} :
    ∀b l dst, (b + l ≤ src.size) →
    List.length (Array.extract.loop src b l dst).data = b + dst.size:= by

@@ -7,13 +7,12 @@ def ELFSectionHeaderTableEntry.Type.SHT_SYMTAB : Nat := 2
 /-- Section holds a string table -/
 def ELFSectionHeaderTableEntry.Type.SHT_STRTAB : Nat := 3
 /-- Section holds relocation entries with explicit addends.  An object file may
-    have multiple section of this type. -/
+\ have multiple section of this type. -/
 def ELFSectionHeaderTableEntry.Type.SHT_RELA : Nat := 4
-/-- Section holds a symbol hash table.  An object file may only have a single
-    hash table. -/
+/-- Section holds a symbol hash table.  An object file may only have a single hash table. -/
 def ELFSectionHeaderTableEntry.Type.SHT_HASH : Nat := 5
-/-- Section holds information for dynamic linking.  An object file may only have
-    a single dynamic section. -/
+/-- Section holds information for dynamic linking.  An object file may only
+\ have a single dynamic section. -/
 def ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC : Nat := 6
 /-- Section holds information that marks the file in some way. -/
 def ELFSectionHeaderTableEntry.Type.SHT_NOTE : Nat := 7
@@ -21,7 +20,7 @@ def ELFSectionHeaderTableEntry.Type.SHT_NOTE : Nat := 7
     section. -/
 def ELFSectionHeaderTableEntry.Type.SHT_NOBITS : Nat := 8
 /-- Section holds relocation entries without explicit addends.  An object file
-    may have multiple section of this type. -/
+\ may have multiple section of this type. -/
 def ELFSectionHeaderTableEntry.Type.SHT_REL : Nat := 9
 /-- Section type is reserved but has an unspecified meaning. -/
 def ELFSectionHeaderTableEntry.Type.SHT_SHLIB : Nat := 10

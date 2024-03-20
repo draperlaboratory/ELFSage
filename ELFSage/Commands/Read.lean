@@ -6,6 +6,7 @@ import ELFSage.Constants.SectionHeaderTable
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
 import ELFSage.Types.StringTable
+import ELFSage.Types.Dynamic
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented := 
@@ -18,7 +19,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
     , "n", "notes"
     , "r", "relocs"
     , "u", "unwind"
-    , "d", "dynamic"
     , "V", "version-info"
     , "A", "arch-specific"
     , "c", "archive-index"
@@ -115,6 +115,22 @@ def printStringsForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (id
     for byte in stringtable.strings do
       if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
 
+def printDynamics (elfheader : RawELFHeader) (bytes : ByteArray) :=
+  for idx in [:elfheader.shnum] do
+    let offset := elfheader.shoff + (idx * elfheader.shentsize)
+    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error _ => pure ()
+    | .ok sectionHeaderEnt =>
+    if sectionHeaderEnt.sh_type != ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC
+    then pure ()
+    else for idx in [:sectionHeaderEnt.sh_size / sectionHeaderEnt.sh_entsize] do
+    IO.print s!"Dynamic Entry {idx}: "
+    let offset := sectionHeaderEnt.sh_offset + (idx * sectionHeaderEnt.sh_entsize)
+    match mkRawDynamicEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error e => IO.println s!"warning: {e}"
+    | .ok dynamicEnt => IO.println $ repr dynamicEnt
+
+
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   
   match checkImplemented p with
@@ -139,12 +155,14 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
     | "segments" => printProgramHeaders elfheader bytes
     | "section-headers" => printSectionHeaders elfheader bytes
     | "sections" => printSectionHeaders elfheader bytes
+    | "dynamic" => printDynamics elfheader bytes
     | "dyn-syms" => 
       let type := ELFSectionHeaderTableEntry.Type.SHT_DYNSYM;
       printSymbolsForSectionType elfheader bytes type
     | "syms" => 
-      let type := ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
-      printSymbolsForSectionType elfheader bytes type
+      let symtab := ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
+      printSymbolsForSectionType elfheader bytes symtab
+      --TODO fallback to DYNSYM when SYMTAB isn't present
     | "string-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse section number provided for string dump"
       | some idx => printStringsForSectionIdx elfheader bytes idx
