@@ -137,9 +137,9 @@ def mkRawRelocation?
     then pure (mkELF32Relocation isBigendian bs offset h).toRawRelocation
     else throw $ err 0xd
   where
-    err size := s!
-      "Tried to find a relocation at {offset}, but that doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := 
+    s! "Tried to find a relocation at {offset}, but that doesn't leave enough space for the entry, " ++
+    s! "which requires {size} bytes."
 
 def mkRawRelocationA?
   (bs : ByteArray)
@@ -157,6 +157,6 @@ def mkRawRelocationA?
     then pure (mkELF32RelocationA isBigendian bs offset h).toRawRelocationA
     else throw $ err 0xd
   where
-    err size := s!
-      "Tried to find a relocation at {offset}, but that doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := 
+    s! "Tried to find a relocation at {offset}, but that doesn't leave enough space for the entry, " ++
+    s! "which requires {size} bytes."
