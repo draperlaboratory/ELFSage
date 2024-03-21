@@ -117,6 +117,5 @@ def mkRawSymbolTableEntry?
     then pure (mkELF32SymbolTableEntry isBigendian bs offset h).toRawSymbolTableEntry
     else throw $ err 0xd
   where
-    err size := s!
-      "Symbol table entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := s! "Symbol table entry offset {offset} doesn't leave enough space for the entry, " ++
+                s! "which requires {size} bytes."

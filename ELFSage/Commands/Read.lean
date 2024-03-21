@@ -8,6 +8,7 @@ import ELFSage.Types.SymbolTable
 import ELFSage.Types.StringTable
 import ELFSage.Types.Dynamic
 import ELFSage.Types.Note
+import ELFSage.Types.Relocation
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented := 
@@ -17,7 +18,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
     , "lto-syms"
     , "sym-base"
     , "C", "demangle"
-    , "r", "relocs"
     , "u", "unwind"
     , "V", "version-info"
     , "A", "arch-specific"
@@ -55,16 +55,19 @@ def sectionNameByOffset (elfheader : RawELFHeader) (bytes : ByteArray) (offset :
       let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
       pure $ stringtable.stringAt offset
 
-def symbolNameByLinkAndOffset (elfheader : RawELFHeader) (bytes : ByteArray) (linkIdx: Nat) (offset : Nat) : Except String String := 
-  let header_offset := elfheader.shoff + (linkIdx * elfheader.shentsize)
+def getSectionByIndex (elfheader : RawELFHeader) (bytes : ByteArray) (idx: Nat) : Except String RawSectionHeaderTableEntry :=
+  let header_offset := elfheader.shoff + (idx * elfheader.shentsize)
   match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian header_offset with
-  | .error _ => .error "unable to locate the section header table referenced by this symbol table"
-  | .ok sectionHeader => 
-    if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
-    then .error "The section header that the symbol table references describes a section that overflows the end of the binary"
-    else 
-      let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
-      pure $ stringtable.stringAt offset
+  | .error warn => .error s!"unable to locate the section header table at index {idx}, {warn}."
+  | .ok s => .ok s
+
+def symbolNameByLinkAndOffset (elfheader : RawELFHeader) (bytes : ByteArray) (linkIdx: Nat) (offset : Nat) : Except String String := do
+  let sectionHeader ← getSectionByIndex elfheader bytes linkIdx
+  if h : bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
+  then .error "The section header that the symbol table references describes a section that overflows the end of the binary"
+  else 
+    let stringtable := mkELFStringTable bytes sectionHeader.sh_offset sectionHeader.sh_size (by omega)
+    pure $ stringtable.stringAt offset
 
 def printSectionHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
   for idx in [:elfheader.shnum] do
@@ -78,6 +81,7 @@ def printSectionHeaders (elfheader : RawELFHeader) (bytes : ByteArray) :=
       | .error warn => IO.print s!"??? - {warn}¬"
       IO.println $ repr sectionHeader
 
+/- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (sectionHeaderEnt : RawSectionHeaderTableEntry) :=
   for idx in [:sectionHeaderEnt.sh_size / sectionHeaderEnt.sh_entsize] do
     IO.print s!"Symbol {idx}: "
@@ -90,10 +94,21 @@ def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (secti
       | .error warn => IO.print s!"??? - {warn}\n"
       IO.println $ repr symbolTableEnt
 
+/- gets the symbol in the section with header `sectionHeaderEnt` with index symidx -/
+def getSymbolNameInSection 
+  (elfheader : RawELFHeader) 
+  (bytes : ByteArray) 
+  (sectionHeaderEnt : RawSectionHeaderTableEntry) 
+  (symidx : Nat) 
+  : Except String String :=
+    let offset := sectionHeaderEnt.sh_offset + (symidx * sectionHeaderEnt.sh_entsize)
+    match mkRawSymbolTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error warn => .error warn
+    | .ok symbolTableEnt => symbolNameByLinkAndOffset elfheader bytes sectionHeaderEnt.sh_link symbolTableEnt.st_name
+
 def printSymbolsForSectionType (elfheader : RawELFHeader) (bytes : ByteArray) (ent_type : Nat) :=
   for idx in [:elfheader.shnum] do
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    match getSectionByIndex elfheader bytes idx with
     | .error _ => pure ()
     | .ok sectionHeaderEnt =>
 
@@ -102,8 +117,7 @@ def printSymbolsForSectionType (elfheader : RawELFHeader) (bytes : ByteArray) (e
     else printSymbolsForSection elfheader bytes sectionHeaderEnt
 
 def printStringsForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : Nat) :=
-  let offset := elfheader.shoff + (idx * elfheader.shentsize)
-  match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+  match getSectionByIndex elfheader bytes idx with
   | .error _ => IO.println s!"There doesn't appear to be a section header {idx}"
   | .ok sectionHeader =>
 
@@ -126,8 +140,7 @@ def dumpBytesAsHex (bytes : ByteArray) : IO Unit := do
       idx ← pure $ idx + 1
 
 def printHexForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : Nat) :=
-  let offset := elfheader.shoff + (idx * elfheader.shentsize)
-  match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+  match getSectionByIndex elfheader bytes idx with
   | .error _ => IO.println s!"There doesn't appear to be a section header {idx}"
   | .ok sectionHeader =>
   if bytes.size < sectionHeader.sh_offset + sectionHeader.sh_size 
@@ -138,8 +151,7 @@ def printHexForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : 
 
 def printDynamics (elfheader : RawELFHeader) (bytes : ByteArray) :=
   for idx in [:elfheader.shnum] do
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    match getSectionByIndex elfheader bytes idx with
     | .error _ => pure ()
     | .ok sectionHeaderEnt =>
     if sectionHeaderEnt.sh_type != ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC
@@ -173,17 +185,44 @@ def printNotes
 
 def printNoteSections (elfheader : RawELFHeader) (bytes : ByteArray) :=
   for idx in [:elfheader.shnum] do
-    let offset := elfheader.shoff + (idx * elfheader.shentsize)
-    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    match getSectionByIndex elfheader bytes idx with
     | .error _ => pure ()
     | .ok sectionHeaderEnt =>
-    if sectionHeaderEnt.sh_type != ELFSectionHeaderTableEntry.Type.SHT_NOTE
-    then pure ()
-    else do
+    if sectionHeaderEnt.sh_type == ELFSectionHeaderTableEntry.Type.SHT_NOTE then
       match sectionNameByOffset elfheader bytes sectionHeaderEnt.sh_name with
       | .ok name => IO.print s!"Notes from {name}\n"
       | .error warn => IO.print s!"Notes from ??? - {warn}\n"
       printNotes elfheader bytes sectionHeaderEnt.sh_offset sectionHeaderEnt.sh_size
+
+def printRelocationA 
+  (elfheader : RawELFHeader) 
+  (bytes: ByteArray) 
+  (sectionHeaderEnt : RawSectionHeaderTableEntry) :=
+  for idx in [:sectionHeaderEnt.sh_size / sectionHeaderEnt.sh_entsize] do
+    IO.print s!"Relocation {idx}: "
+    let offset := sectionHeaderEnt.sh_offset + (idx * sectionHeaderEnt.sh_entsize)
+    match mkRawRelocationA? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error warn => IO.println warn
+    | .ok relocationA =>
+      let r_sym := if elfheader.is64Bit then relocationA.ra_info / 2^32 else relocationA.ra_info / 2^8
+      let linkedSection := getSectionByIndex elfheader bytes sectionHeaderEnt.sh_link
+      match linkedSection with
+      | .ok linkedSection => match getSymbolNameInSection elfheader bytes linkedSection r_sym with
+        | .ok name => IO.print s!"{name}\n"
+        | .error warn => IO.print s!"??? - {warn}\n"
+      | .error warn => IO.print s!"??? - can't locate names: {warn}\n"
+      IO.println $ repr relocationA
+
+def printRelocationSections (elfheader : RawELFHeader) (bytes : ByteArray) :=
+  for idx in [:elfheader.shnum] do
+    match  getSectionByIndex elfheader bytes idx with
+    | .error _ => pure ()
+    | .ok sectionHeaderEnt =>
+    if sectionHeaderEnt.sh_type == ELFSectionHeaderTableEntry.Type.SHT_RELA then
+      match sectionNameByOffset elfheader bytes sectionHeaderEnt.sh_name with
+      | .ok name => IO.print s!"Relocations from {name}\n"
+      | .error warn => IO.print s!"Relocations from ??? - {warn}\n"
+      printRelocationA elfheader bytes sectionHeaderEnt
 
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   
@@ -224,6 +263,7 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
       | none => IO.println "couldn't parse section number provided for hex dump"
       | some idx => printHexForSectionIdx elfheader bytes idx
     | "notes" => printNoteSections elfheader bytes
+    | "relocs" => printRelocationSections elfheader bytes
     | _ => IO.println $ "unrecognized flag: " ++ flag.flag.longName
 
   return 0

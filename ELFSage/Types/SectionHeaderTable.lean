@@ -158,6 +158,5 @@ def mkRawSectionHeaderTableEntry?
     then pure (mkELF32SectionHeaderTableEntry isBigendian bs offset h).toRawSectionHeaderTableEntry
     else throw $ err 0x28
   where
-    err size := s!
-      "Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := s! "Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
+                s! "which requires {size} bytes."

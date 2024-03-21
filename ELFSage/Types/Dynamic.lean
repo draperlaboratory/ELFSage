@@ -271,6 +271,5 @@ def mkRawDynamicEntry?
     then ELF32DynamicEntry.toRawDynamicEntry <$> mkELF32DynamicEntry? isBigendian bs offset h
     else throw $ err 0x08
   where
-    err size := s!
-      "Dynamic entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := s! "Dynamic entry offset {offset} doesn't leave enough space for the entry, " ++
+                s! "which requires {size} bytes."

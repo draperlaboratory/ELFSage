@@ -137,6 +137,5 @@ def mkRawProgramHeaderTableEntry?
     then pure (mkELF32ProgramHeaderTableEntry isBigendian bs offset h).toRawProgramHeaderTableEntry 
     else throw $ err 0x20
   where
-    err size := s!
-      "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires {size} bytes."
+    err size := s! "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
+                s! "which requires {size} bytes."
