@@ -230,12 +230,18 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   | .error warn => IO.println warn *> return 1
   | .ok _ => do
 
+  if p.flags.size == 0 then do
+    p.printHelp
+    return 1
+
   let targetBinary := (p.positionalArg! "targetBinary").as! System.FilePath
   let bytes ← IO.FS.readBinFile targetBinary
 
   match mkRawELFHeader? bytes with
   | .error warn => IO.println warn *> return 1
   | .ok elfheader => do
+
+    
 
   for flag in p.flags do
     match flag.flag.longName with
