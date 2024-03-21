@@ -7,6 +7,7 @@ import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
 import ELFSage.Types.StringTable
 import ELFSage.Types.Dynamic
+import ELFSage.Types.Note
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented := 
@@ -16,7 +17,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
     , "lto-syms"
     , "sym-base"
     , "C", "demangle"
-    , "n", "notes"
     , "r", "relocs"
     , "u", "unwind"
     , "V", "version-info"
@@ -87,7 +87,7 @@ def printSymbolsForSection (elfheader : RawELFHeader) (bytes : ByteArray) (secti
     | .ok symbolTableEnt => 
       match symbolNameByLinkAndOffset elfheader bytes sectionHeaderEnt.sh_link symbolTableEnt.st_name with
       | .ok name => IO.print s!"{name}\n"
-      | .error warn => IO.print s!"??? - {warn}¬"
+      | .error warn => IO.print s!"??? - {warn}\n"
       IO.println $ repr symbolTableEnt
 
 def printSymbolsForSectionType (elfheader : RawELFHeader) (bytes : ByteArray) (ent_type : Nat) :=
@@ -151,6 +151,39 @@ def printDynamics (elfheader : RawELFHeader) (bytes : ByteArray) :=
     | .error e => IO.println s!"warning: {e}"
     | .ok dynamicEnt => IO.println $ repr dynamicEnt
 
+-- should use this for both SHT_NOTE sections and PT_NOTE segments
+def printNotes
+  (elfheader : RawELFHeader)
+  (bytes : ByteArray)
+  (offset : Nat)
+  (space : Nat)
+  : IO Unit := match space with
+  | 0 => pure ()
+  | spaceminus + 1 => --we work with space-1 to automatically prove termination
+    match mkRawNoteEntry? bytes elfheader.isBigendian offset with
+    | .error e => IO.println e
+    | .ok ne => do
+      IO.println $ repr ne
+      let notesize := 0xc + alignTo4 ne.note_name.size + alignTo4 ne.note_desc.size
+      if spaceminus - notesize ≥ 0xb
+      then printNotes elfheader bytes (offset + notesize) (spaceminus - (notesize - 1))
+      else pure ()
+  where 
+    alignTo4 n := n + (n % 4)
+
+def printNoteSections (elfheader : RawELFHeader) (bytes : ByteArray) :=
+  for idx in [:elfheader.shnum] do
+    let offset := elfheader.shoff + (idx * elfheader.shentsize)
+    match mkRawSectionHeaderTableEntry? bytes elfheader.is64Bit elfheader.isBigendian offset with
+    | .error _ => pure ()
+    | .ok sectionHeaderEnt =>
+    if sectionHeaderEnt.sh_type != ELFSectionHeaderTableEntry.Type.SHT_NOTE
+    then pure ()
+    else do
+      match sectionNameByOffset elfheader bytes sectionHeaderEnt.sh_name with
+      | .ok name => IO.print s!"Notes from {name}\n"
+      | .error warn => IO.print s!"Notes from ??? - {warn}\n"
+      printNotes elfheader bytes sectionHeaderEnt.sh_offset sectionHeaderEnt.sh_size
 
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   
@@ -190,6 +223,7 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
     | "hex-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse section number provided for hex dump"
       | some idx => printHexForSectionIdx elfheader bytes idx
+    | "notes" => printNoteSections elfheader bytes
     | _ => IO.println $ "unrecognized flag: " ++ flag.flag.longName
 
   return 0
