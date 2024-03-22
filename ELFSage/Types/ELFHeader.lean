@@ -66,7 +66,7 @@ structure ELF64Header where
   deriving Repr
 
 /-- A simple parser for extracting an ELF64 header, just a test, no validation -/
-def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := { 
+def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := { 
   ident     := NByteArray.extract bs 0x10 (by omega),
   type      := getUInt16from 0x10 (by omega),
   machine   := getUInt16from 0x12 (by omega),
@@ -86,6 +86,10 @@ def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 64) : ELF64Header := {
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
   getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
   getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
+
+def mkELF64Header? (bs: ByteArray) : Except String ELF64Header :=
+  if h : bs.size ≥ 0x40 then .ok $ mkELF64Header bs h
+  else .error "We're looking for a 64 bit ELF header but there aren't enough bytes."
 
 def ELF64Header.toRawELFHeader (eh : ELF64Header) : RawELFHeader := {
   ident     := eh.ident
@@ -135,7 +139,7 @@ structure ELF32Header where
   shstrndx : elf32_half
   deriving Repr
 
-/-- A simple parser for extracting an ELF34 header, just a test, no validation -/
+/-- A simple parser for extracting an ELF32 header, just a test, no validation -/
 def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := { 
   ident     := NByteArray.extract bs 0x10 (by omega),
   type      := getUInt16from 0x10 (by omega),
@@ -156,6 +160,10 @@ def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := {
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
   getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
+def mkELF32Header? (bs: ByteArray) : Except String ELF32Header :=
+  if h : bs.size ≥ 0x34 then .ok $ mkELF32Header bs h
+  else .error "We're looking for a 32 bit ELF header but there aren't enough bytes."
+
 def ELF32Header.toRawELFHeader (eh : ELF32Header) : RawELFHeader := {
   ident     := eh.ident
   type      := eh.type.toNat
@@ -174,13 +182,8 @@ def ELF32Header.toRawELFHeader (eh : ELF32Header) : RawELFHeader := {
 }
 
 def mkRawELFHeader? (bs : ByteArray) : Except String RawELFHeader :=
-  if h : bs.size < 5 then throw e1
+  if h : bs.size < 5 then throw "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."
   else match bs.get ⟨0x4, by omega⟩ with
-  | 1 => if h : bs.size ≥ 0x34 then pure (mkELF32Header bs h).toRawELFHeader else throw e2
-  | 2 => if h : bs.size ≥ 0x40 then pure (mkELF64Header bs h).toRawELFHeader else throw e3
-  | _ => throw e4
-  where
-    e1 := "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."
-    e2 := "Can't parse - ELF header specifies 32 bit, but there aren't enough bytes."
-    e3 := "Can't parse - ELF header specifies 64 bit, but there aren't enough bytes."
-    e4 := "Can't determine if this is a 32 of 64 bit binary (byte 0x5 of the elf header is bad)"
+  | 1 => ELF32Header.toRawELFHeader <$> mkELF32Header? bs
+  | 2 => ELF64Header.toRawELFHeader <$> mkELF64Header? bs
+  | _ => throw "Can't determine if this is a 32 of 64 bit binary (byte 0x5 of the elf header is bad)"

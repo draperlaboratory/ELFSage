@@ -68,6 +68,17 @@ def mkELF64SectionHeaderTableEntry
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
 
+def mkELF64SectionHeaderTableEntry?
+  (isBigEndian : Bool) 
+  (bs : ByteArray) 
+  (offset : Nat) 
+  : Except String ELF64SectionHeaderTableEntry :=
+  if h : bs.size - offset ≥ 0x40 
+  then .ok $ mkELF64SectionHeaderTableEntry isBigEndian bs offset h
+  else .error $ 
+    s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
+      "which requires 0x28 bytes."
+
 def ELF64SectionHeaderTableEntry.toRawSectionHeaderTableEntry
   (she : ELF64SectionHeaderTableEntry)
   : RawSectionHeaderTableEntry := {
@@ -127,6 +138,17 @@ def mkELF32SectionHeaderTableEntry
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
+def mkELF32SectionHeaderTableEntry?
+  (isBigEndian : Bool) 
+  (bs : ByteArray) 
+  (offset : Nat) 
+  : Except String ELF32SectionHeaderTableEntry :=
+  if h : bs.size - offset ≥ 0x28
+  then .ok $ mkELF32SectionHeaderTableEntry isBigEndian bs offset h
+  else .error $ 
+    s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
+      "which requires 0x28 bytes."
+
 def ELF32SectionHeaderTableEntry.toRawSectionHeaderTableEntry
   (she : ELF32SectionHeaderTableEntry)
   : RawSectionHeaderTableEntry := {
@@ -148,15 +170,8 @@ def mkRawSectionHeaderTableEntry?
   (isBigendian : Bool)
   (offset : Nat)
   : Except String RawSectionHeaderTableEntry := 
-  match is64Bit with
-  | true   => 
-    if h : bs.size - offset ≥ 0x40 
-    then pure (mkELF64SectionHeaderTableEntry isBigendian bs offset h).toRawSectionHeaderTableEntry
-    else throw $ err 0x40
-  | false  => 
-    if h : bs.size - offset ≥ 0x28 
-    then pure (mkELF32SectionHeaderTableEntry isBigendian bs offset h).toRawSectionHeaderTableEntry
-    else throw $ err 0x28
-  where
-    err size := s! "Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
-                s! "which requires {size} bytes."
+  if is64Bit 
+  then ELF64SectionHeaderTableEntry.toRawSectionHeaderTableEntry 
+    <$> mkELF64SectionHeaderTableEntry? isBigendian bs offset
+  else ELF32SectionHeaderTableEntry.toRawSectionHeaderTableEntry
+    <$> mkELF32SectionHeaderTableEntry? isBigendian bs offset

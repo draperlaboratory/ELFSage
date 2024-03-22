@@ -71,6 +71,16 @@ def ELF64ProgramHeaderTableEntry.toRawProgramHeaderTableEntry
     p_align  := phe.p_align.toNat
   }
 
+def mkELF64ProgramHeaderTableEntry?
+  (isBigEndian : Bool)
+  (bs : ByteArray)
+  (offset : Nat) 
+  : Except String ELF64ProgramHeaderTableEntry :=
+  if h : bs.size - offset ≥ 0x38
+  then .ok $ mkELF64ProgramHeaderTableEntry isBigEndian bs offset h
+  else .error $ "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
+                "which requires 0x20 bytes."
+
 structure ELF32ProgramHeaderTableEntry where
   /-- Type of the segment -/
   p_type   : elf32_word
@@ -108,6 +118,16 @@ def mkELF32ProgramHeaderTableEntry
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
+def mkELF32ProgramHeaderTableEntry?
+  (isBigEndian : Bool)
+  (bs : ByteArray)
+  (offset : Nat) 
+  : Except String ELF32ProgramHeaderTableEntry :=
+  if h : bs.size - offset ≥ 0x20 
+  then .ok $ mkELF32ProgramHeaderTableEntry isBigEndian bs offset h
+  else .error $ "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
+                "which requires 0x20 bytes."
+
 def ELF32ProgramHeaderTableEntry.toRawProgramHeaderTableEntry 
   (phe : ELF32ProgramHeaderTableEntry)
   : RawProgramHeaderTableEntry := {
@@ -128,14 +148,5 @@ def mkRawProgramHeaderTableEntry?
   (offset : Nat)
   : Except String RawProgramHeaderTableEntry := 
   match is64Bit with
-  | true   => 
-    if h : bs.size - offset ≥ 0x38 
-    then pure (mkELF64ProgramHeaderTableEntry isBigendian bs offset h).toRawProgramHeaderTableEntry 
-    else throw $ err 0x38
-  | false  => 
-    if h : bs.size - offset ≥ 0x20 
-    then pure (mkELF32ProgramHeaderTableEntry isBigendian bs offset h).toRawProgramHeaderTableEntry 
-    else throw $ err 0x20
-  where
-    err size := s! "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
-                s! "which requires {size} bytes."
+  | true  => ELF64ProgramHeaderTableEntry.toRawProgramHeaderTableEntry <$> mkELF64ProgramHeaderTableEntry? isBigendian bs offset
+  | false => ELF32ProgramHeaderTableEntry.toRawProgramHeaderTableEntry <$> mkELF32ProgramHeaderTableEntry? isBigendian bs offset
