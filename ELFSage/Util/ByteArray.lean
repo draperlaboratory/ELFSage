@@ -77,10 +77,17 @@ structure NByteArray (n : Nat) where
   sized: bytes.size = n
 
 instance : Repr (NByteArray n) where
-  reprPrec nbs := reprPrec nbs.bytes.toList
+  reprPrec nbs := reprPrec $ nbs.bytes.toList.map λbyte ↦ 
+    Nat.toDigits 16 byte.toNat 
+    |> (λl ↦ if l.length == 1 then '0' :: l else l) 
+    |> List.asString
+    
 
 instance : Repr ByteArray where
-  reprPrec bs := reprPrec bs.data
+  reprPrec nbs := reprPrec $ nbs.data.toList.map λbyte ↦ 
+    Nat.toDigits 16 byte.toNat 
+    |> (λl ↦ if l.length == 1 then '0' :: l else l) 
+    |> List.asString
 
 theorem Array.extract_len_aux {src: Array α} :
    ∀b l dst, (b + l ≤ src.size) →
