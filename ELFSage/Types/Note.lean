@@ -1,18 +1,17 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
-structure RawNoteEntry where
+class NoteEntry (α : Type) where
   /-- The size of the name field -/
-  note_namesz : Nat
+  note_namesz : α → Nat
   /-- The size of the description field -/
-  note_descsz : Nat
+  note_descsz : α → Nat
   /-- The type of note -/
-  note_type : Nat
+  note_type : α → Nat
   /-- The note name as a ByteArray-/
-  note_name : ByteArray
+  note_name : α → ByteArray
   /-- The note description as a ByteArray -/
-  note_desc : ByteArray
-  deriving Repr
+  note_desc : α → ByteArray
 
 structure ELF64NoteEntry where
   /-- The size of the name field -/
@@ -25,6 +24,7 @@ structure ELF64NoteEntry where
   note_name : ByteArray
   /-- The note description as a ByteArray -/
   note_desc : ByteArray
+  deriving Repr
 
 -- TODO this should check that the note doesn't overrun the end of the note section
 def mkELF64NoteEntry?
@@ -53,22 +53,31 @@ def mkELF64NoteEntry?
 -- Because ELF32 and ELF64 words are the same size, the two note types are really one and the same
 abbrev ELF32NoteEntry := ELF64NoteEntry
 
-def ELF64NoteEntry.toRawNoteEntry
-  (ne : ELF64NoteEntry) 
-  : RawNoteEntry :=
-  {
-    note_namesz := ne.note_namesz.toNat
-    note_descsz := ne.note_descsz.toNat
-    note_type := ne.note_type.toNat
-    note_name := ne.note_name
-    note_desc := ne.note_desc
-  }
+instance : NoteEntry ELF64NoteEntry where
+    note_namesz ne := ne.note_namesz.toNat
+    note_descsz ne := ne.note_descsz.toNat
+    note_type ne := ne.note_type.toNat
+    note_name ne := ne.note_name
+    note_desc ne := ne.note_desc
+
+inductive RawNoteEntry where
+  | elf64 : ELF64NoteEntry → RawNoteEntry
+  | elf32 : ELF32NoteEntry → RawNoteEntry
+  deriving Repr
+
+instance : NoteEntry RawNoteEntry where
+    note_namesz ne := match ne with | .elf64 ne => ne.note_namesz.toNat | .elf32 ne => ne.note_namesz.toNat 
+    note_descsz ne := match ne with | .elf64 ne => ne.note_descsz.toNat | .elf32 ne => ne.note_descsz.toNat 
+    note_type ne   := match ne with | .elf64 ne => ne.note_type.toNat   | .elf32 ne => ne.note_type.toNat   
+    note_name ne   := match ne with | .elf64 ne => ne.note_name         | .elf32 ne => ne.note_name         
+    note_desc ne   := match ne with | .elf64 ne => ne.note_desc         | .elf32 ne => ne.note_desc         
 
 def mkRawNoteEntry? 
   (bs : ByteArray)
   (isBigendian : Bool)
+  (is64Bit : Bool)
   (offset : Nat)
   : Except String RawNoteEntry := 
   if h : bs.size - offset ≥ 0xc 
-  then ELF64NoteEntry.toRawNoteEntry <$> mkELF64NoteEntry? isBigendian bs offset h
+  then if is64Bit then .elf64 <$> mkELF64NoteEntry? isBigendian bs offset h else .elf32 <$> mkELF64NoteEntry? isBigendian bs offset h
   else .error "Note entry offset {offset} doesn't leave enough space for the note, which requires at least 12 bytes"

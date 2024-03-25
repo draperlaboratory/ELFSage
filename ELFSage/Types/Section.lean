@@ -1,7 +1,7 @@
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Constants.SectionHeaderTable
 
-structure ELF32InterpretedSection where
+structure InterpretedSection where
   /-- Name of the section -/
   section_name    : Nat 
   /-- Type of the section -/
@@ -28,81 +28,27 @@ structure ELF32InterpretedSection where
   section_name_as_string : Option String
   deriving Repr
 
-def ELF32SectionHeaderTableEntry.toSection?
-  (shte : ELF32SectionHeaderTableEntry)
+def SectionHeaderTableEntry.toSection?
+  [SectionHeaderTableEntry α]
+  (shte : α)
   (bytes : ByteArray)
   (name : Option String)
-  : Except String ELF32InterpretedSection :=
-  if bytes.size < shte.sh_offset.toNat + shte.sh_size.toNat
+  : Except String InterpretedSection :=
+  if bytes.size < (sh_offset shte) + (sh_size shte)
   then .error $
-    s! "A section specified in the section header table at offset {shte.sh_offset}, " ++
-    s! "with size {shte.sh_size}, runs off the end of the binary."
+    s! "A section specified in the section header table at offset {sh_offset shte}, " ++
+    s! "with size {sh_size shte}, runs off the end of the binary."
   else .ok {
-    section_name    := shte.sh_name.toNat
-    section_type    := shte.sh_type.toNat
-    section_flags   := shte.sh_flags.toNat
-    section_addr    := shte.sh_addr.toNat
-    section_offset  := shte.sh_offset.toNat
-    section_size    := shte.sh_size.toNat
-    section_link    := shte.sh_link.toNat
-    section_info    := shte.sh_info.toNat
-    section_align   := shte.sh_addralign.toNat
-    section_entsize := shte.sh_entsize.toNat
-    section_body    := bytes.extract shte.sh_offset.toNat (shte.sh_offset.toNat + shte.sh_size.toNat)
-    section_name_as_string := name
-  }
-  
-structure ELF64InterpretedSection where
-  /-- Name of the section -/
-  section_name    : Nat 
-  /-- Type of the section -/
-  section_type    : Nat 
-  /-- Flags associated with the section -/
-  section_flags   : Nat 
-  /-- Base address of the section in memory -/
-  section_addr    : Nat 
-  /-- Offset from beginning of file -/
-  section_offset  : Nat 
-  /-- Section size in bytes -/
-  section_size    : Nat 
-  /-- Section header table index link -/
-  section_link    : Nat 
-  /-- Extra information, depends on section type -/
-  section_info    : Nat 
-  /-- Alignment constraints for section -/
-  section_align   : Nat 
-  /-- Size of each entry in table, if section is one -/
-  section_entsize : Nat 
-  /-- Body of section -/
-  section_body    : ByteArray
-  /-- Name of the section, as a string, if the section has one -/
-  section_name_as_string : Option String
-  deriving Repr
-
-def ELF64SectionHeaderTableEntry.toSection?
-  (shte : ELF64SectionHeaderTableEntry)
-  (bytes : ByteArray)
-  (name : Option String)
-  : Except String ELF64InterpretedSection :=
-  if bytes.size < shte.sh_offset.toNat + shte.sh_size.toNat 
-     ∧ shte.sh_type.toNat != ELFSectionHeaderTableEntry.Type.SHT_NOBITS -- sections of type NOBITS don't correspond to bytes in the file
-  then .error $
-    s! "A section specified in the section header table at offset {shte.sh_offset}, " ++
-    s! "with size {shte.sh_size}, runs off the end of the binary."
-  else .ok {
-    section_name    := shte.sh_name.toNat
-    section_type    := shte.sh_type.toNat
-    section_flags   := shte.sh_flags.toNat
-    section_addr    := shte.sh_addr.toNat
-    section_offset  := shte.sh_offset.toNat
-    section_size    := shte.sh_size.toNat
-    section_link    := shte.sh_link.toNat
-    section_info    := shte.sh_info.toNat
-    section_align   := shte.sh_addralign.toNat
-    section_entsize := shte.sh_entsize.toNat
-    section_body    := 
-      if shte.sh_type.toNat == ELFSectionHeaderTableEntry.Type.SHT_NOBITS
-      then ByteArray.mkEmpty 0
-      else bytes.extract shte.sh_offset.toNat (shte.sh_offset.toNat + shte.sh_size.toNat)
+    section_name    := sh_name shte
+    section_type    := sh_type shte
+    section_flags   := sh_flags shte
+    section_addr    := sh_addr shte
+    section_offset  := sh_offset shte
+    section_size    := sh_size shte
+    section_link    := sh_link shte
+    section_info    := sh_info shte
+    section_align   := sh_addralign shte
+    section_entsize := sh_entsize shte
+    section_body    := bytes.extract (sh_offset shte) (sh_offset shte + sh_size shte)
     section_name_as_string := name
   }

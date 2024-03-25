@@ -6,12 +6,18 @@ def SInt32.toInt (si :SInt32) : Int :=
   if uval < 2 ^ 31 then ↑uval
   else (↑uval : Int) - (2 ^ 32)
 
+instance : Repr SInt32 where
+  reprPrec sint := reprPrec $ sint.toInt
+
 structure SInt64 := bytes : UInt64
 
 def SInt64.toInt (si :SInt64) : Int := 
   let uval := si.bytes.toNat
   if uval < 2 ^ 63 then ↑uval
   else (↑uval : Int) - (2 ^ 64)
+
+instance : Repr SInt64 where
+  reprPrec sint := reprPrec $ sint.toInt
 
 /-- ELF64 Half word -/
 abbrev elf64_half   := UInt16 

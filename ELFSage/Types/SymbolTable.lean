@@ -1,20 +1,19 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
-structure RawSymbolTableEntry where
+class SymbolTableEntry (α : Type) where
   /-- Index into the object file's string table -/
-  st_name  : Nat
+  st_name  : α → Nat
   /-- Specifies the symbol's type and binding attributes -/
-  st_info  : Nat
+  st_info  : α → Nat
   /-- Currently specifies the symbol's visibility -/
-  st_other : Nat
+  st_other : α → Nat
   /-- Section header index symbol is defined with respect to -/
-  st_shndx : Nat
+  st_shndx : α → Nat
   /-- Gives the value of the associated symbol -/
-  st_value : Nat
+  st_value : α → Nat
   /-- Size of the associated symbol -/
-  st_size  : Nat
-  deriving Repr
+  st_size  : α → Nat
 
 structure ELF64SymbolTableEntry where
   /-- Index into the object file's string table -/
@@ -30,6 +29,14 @@ structure ELF64SymbolTableEntry where
   /-- Size of the associated symbol -/
   st_size  : elf64_xword
   deriving Repr
+
+instance : SymbolTableEntry ELF64SymbolTableEntry where
+  st_name ste  := ste.st_name.toNat
+  st_info ste  := ste.st_info.toNat
+  st_other ste := ste.st_other.toNat
+  st_shndx ste := ste.st_shndx.toNat
+  st_value ste := ste.st_value.toNat
+  st_size ste  := ste.st_size.toNat
 
 def mkELF64SymbolTableEntry
   (isBigEndian : Bool)
@@ -48,17 +55,6 @@ def mkELF64SymbolTableEntry
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
 
-def ELF64SymbolTableEntry.toRawSymbolTableEntry
-  (ste : ELF64SymbolTableEntry)
-  : RawSymbolTableEntry := {
-    st_name  := ste.st_name.toNat
-    st_info  := ste.st_info.toNat
-    st_other := ste.st_other.toNat
-    st_shndx := ste.st_shndx.toNat
-    st_value := ste.st_value.toNat
-    st_size  := ste.st_size.toNat
-  }
-
 structure ELF32SymbolTableEntry where
   /-- Index into the object file's string table -/
   st_name  : elf32_word
@@ -73,6 +69,14 @@ structure ELF32SymbolTableEntry where
   /-- Section header index symbol is defined with respect to -/
   st_shndx : elf32_half
   deriving Repr
+
+instance : SymbolTableEntry ELF32SymbolTableEntry where
+  st_name ste  := ste.st_name.toNat
+  st_info ste  := ste.st_info.toNat
+  st_other ste := ste.st_other.toNat
+  st_shndx ste := ste.st_shndx.toNat
+  st_value ste := ste.st_value.toNat
+  st_size ste  := ste.st_size.toNat
 
 def mkELF32SymbolTableEntry
   (isBigEndian : Bool)
@@ -90,16 +94,18 @@ def mkELF32SymbolTableEntry
     getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
-def ELF32SymbolTableEntry.toRawSymbolTableEntry
-  (ste : ELF32SymbolTableEntry)
-  : RawSymbolTableEntry := {
-    st_name  := ste.st_name.toNat
-    st_info  := ste.st_info.toNat
-    st_other := ste.st_other.toNat
-    st_shndx := ste.st_shndx.toNat
-    st_value := ste.st_value.toNat
-    st_size  := ste.st_size.toNat
-  }
+inductive RawSymbolTableEntry :=
+  | elf32 : ELF32SymbolTableEntry → RawSymbolTableEntry
+  | elf64 : ELF64SymbolTableEntry → RawSymbolTableEntry
+  deriving Repr
+
+instance : SymbolTableEntry RawSymbolTableEntry where
+  st_name ste  := match ste with | .elf64 ste => ste.st_name.toNat  | .elf32 ste => ste.st_name.toNat 
+  st_info ste  := match ste with | .elf64 ste => ste.st_info.toNat  | .elf32 ste => ste.st_info.toNat 
+  st_other ste := match ste with | .elf64 ste => ste.st_other.toNat | .elf32 ste => ste.st_other.toNat
+  st_shndx ste := match ste with | .elf64 ste => ste.st_shndx.toNat | .elf32 ste => ste.st_shndx.toNat
+  st_value ste := match ste with | .elf64 ste => ste.st_value.toNat | .elf32 ste => ste.st_value.toNat
+  st_size ste  := match ste with | .elf64 ste => ste.st_size.toNat  | .elf32 ste => ste.st_size.toNat 
 
 def mkRawSymbolTableEntry?
   (bs : ByteArray)
@@ -110,11 +116,11 @@ def mkRawSymbolTableEntry?
   match is64Bit with
   | true   => 
     if h : bs.size - offset ≥ 0x18
-    then pure (mkELF64SymbolTableEntry isBigendian bs offset h).toRawSymbolTableEntry
+    then pure (.elf64 $ mkELF64SymbolTableEntry isBigendian bs offset h)
     else throw $ err 0x18
   | false  => 
     if h : bs.size - offset ≥ 0xd
-    then pure (mkELF32SymbolTableEntry isBigendian bs offset h).toRawSymbolTableEntry
+    then pure (.elf32 $ mkELF32SymbolTableEntry isBigendian bs offset h)
     else throw $ err 0xd
   where
     err size := s! "Symbol table entry offset {offset} doesn't leave enough space for the entry, " ++

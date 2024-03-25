@@ -7,7 +7,7 @@ import ELFSage.Types.Segment
 -- NOTE: this structure has some fairly arbitrary features. linksem for
 -- example wants two lists, of program headers and of interpreted segments,
 -- which are of the same length as an invariant. It seems at least equally
--- reasonable to have a single field `interpreted_segmenets` of type
+-- reasonable to have a single field `interpreted_segments` of type
 -- ProgramHeaderEntry × InterpretedSegment.
 
 structure ELF32File where
@@ -18,9 +18,9 @@ structure ELF32File where
   /-- The Section Header Entries -/
   section_header_table  : List ELF32SectionHeaderTableEntry
   /-- The Segments of the file -/
-  interpreted_segments  : List ELF32InterpretedSegment
+  interpreted_segments  : List InterpretedSegment
   /-- The Sections of the file -/
-  interpreted_sections  : List ELF32InterpretedSection
+  interpreted_sections  : List InterpretedSection
   /-- Bits and Bobs: binary contents not covered by any section or segment -/
   bits_and_bobs         : List (Nat × ByteArray)
   deriving Repr
@@ -33,14 +33,12 @@ structure ELF64File where
   /-- The Section Header Entries -/
   section_header_table  : List ELF64SectionHeaderTableEntry
   /-- The Segments of the file -/
-  interpreted_segments  : List ELF64InterpretedSegment
+  interpreted_segments  : List InterpretedSegment
   /-- The Sections of the file -/
-  interpreted_sections  : List ELF64InterpretedSection
+  interpreted_sections  : List InterpretedSection
   /-- Bits and Bobs: binary contents not covered by any section or segment -/
   bits_and_bobs         : List (Nat × ByteArray)
   deriving Repr
-
-
 
 def ByteArray.stringAt (bytes : ByteArray) (idx : Nat) : Except String String :=
   match bytes.findIdx? (· == 0) idx with
@@ -97,13 +95,13 @@ def mkELF64File (bytes : ByteArray) : Except String ELF64File := do
       else .ok $ bytes.extract shstr_start shstr_end
 
   let interpreted_segments ← program_header_table.mapM 
-    $ λphte ↦ phte.toSegment? bytes
+    $ λphte ↦ ProgramHeaderTableEntry.toSegment? phte bytes
   
   let interpreted_sections ← section_header_table.mapM $ λshte ↦ 
-    if shte.sh_name == 0 then shte.toSection? bytes .none
+    if shte.sh_name == 0 then SectionHeaderTableEntry.toSection? shte bytes .none
     else do
       let name ← section_names.stringAt shte.sh_name.toNat
-      shte.toSection? bytes name
+      SectionHeaderTableEntry.toSection? shte bytes name
 
   let ranges := (0, file_header.ehsize.toNat) --ELF header
              :: (file_header.phoff.toNat, file_header.phoff.toNat + (file_header.phnum.toNat * file_header.phentsize.toNat)) --Program header entries

@@ -1,38 +1,37 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
-structure RawELFHeader where
-  ident    : NByteArray 16
+class ELFHeader (α : Type) where
+  ident    : α → NByteArray 16
   /-- The object file type -/
-  type     : Nat
+  type     : α → Nat
   /-- Required machine architecture -/
-  machine  : Nat
+  machine  : α → Nat
   /-- Object file version -/
-  version  : Nat
+  version  : α → Nat
   /-- Virtual address for transfer of control -/
-  entry    : Nat
+  entry    : α → Nat
   /-- Program header table offset in bytes -/
-  phoff    : Nat
+  phoff    : α → Nat
   /-- Section header table offset in bytes -/
-  shoff    : Nat
+  shoff    : α → Nat
   /-- Processor-specific flags -/
-  flags    : Nat
+  flags    : α → Nat
   /-- ELF header size in bytes -/
-  ehsize   : Nat
+  ehsize   : α → Nat
   /-- Program header table entry size in bytes -/
-  phentsize: Nat
+  phentsize: α → Nat
   /-- Number of entries in program header table -/
-  phnum    : Nat
+  phnum    : α → Nat
   /-- Section header table entry size in bytes -/
-  shentsize: Nat
+  shentsize: α → Nat
   /-- Number of entries in section header table -/
-  shnum    : Nat
+  shnum    : α → Nat
   /-- Section header table entry for section name string table -/
-  shstrndx : Nat
-  deriving Repr
+  shstrndx : α → Nat
 
-def RawELFHeader.isBigendian (rh : RawELFHeader) := let ⟨bytes, _⟩ := rh.ident; bytes[0x5] == 2
-def RawELFHeader.is64Bit (rh : RawELFHeader) := let ⟨bytes, _⟩ := rh.ident; bytes[0x4] == 2
+def ELFHeader.isBigendian [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x5] == 2
+def ELFHeader.is64Bit [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x4] == 2
 
 structure ELF64Header where
   /-- Identification field -/
@@ -65,6 +64,22 @@ structure ELF64Header where
   shstrndx : elf64_half
   deriving Repr
 
+instance : ELFHeader ELF64Header where
+  ident eh      := eh.ident
+  type eh       := eh.type.toNat
+  machine eh    := eh.machine.toNat
+  version eh    := eh.version.toNat
+  entry eh      := eh.entry.toNat
+  phoff eh      := eh.phoff.toNat
+  shoff eh      := eh.shoff.toNat
+  flags eh      := eh.flags.toNat
+  ehsize eh     := eh.ehsize.toNat
+  phentsize eh  := eh.phentsize.toNat
+  phnum eh      := eh.phnum.toNat
+  shentsize eh  := eh.shentsize.toNat
+  shnum eh      := eh.shnum.toNat
+  shstrndx eh   := eh.shstrndx.toNat
+
 /-- A simple parser for extracting an ELF64 header, just a test, no validation -/
 def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := { 
   ident     := NByteArray.extract bs 0x10 (by omega),
@@ -90,23 +105,6 @@ def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := {
 def mkELF64Header? (bs: ByteArray) : Except String ELF64Header :=
   if h : bs.size ≥ 0x40 then .ok $ mkELF64Header bs h
   else .error "We're looking for a 64 bit ELF header but there aren't enough bytes."
-
-def ELF64Header.toRawELFHeader (eh : ELF64Header) : RawELFHeader := {
-  ident     := eh.ident
-  type      := eh.type.toNat
-  machine   := eh.machine.toNat
-  version   := eh.version.toNat
-  entry     := eh.entry.toNat
-  phoff     := eh.phoff.toNat
-  shoff     := eh.shoff.toNat
-  flags     := eh.flags.toNat
-  ehsize    := eh.ehsize.toNat
-  phentsize := eh.phentsize.toNat
-  phnum     := eh.phnum.toNat
-  shentsize := eh.shentsize.toNat
-  shnum     := eh.shnum.toNat
-  shstrndx  := eh.shstrndx.toNat
-}
 
 structure ELF32Header where
   /-- Identification field -/
@@ -139,6 +137,22 @@ structure ELF32Header where
   shstrndx : elf32_half
   deriving Repr
 
+instance : ELFHeader ELF64Header where
+  ident eh      := eh.ident
+  type eh       := eh.type.toNat
+  machine eh    := eh.machine.toNat
+  version eh    := eh.version.toNat
+  entry eh      := eh.entry.toNat
+  phoff eh      := eh.phoff.toNat
+  shoff eh      := eh.shoff.toNat
+  flags eh      := eh.flags.toNat
+  ehsize eh     := eh.ehsize.toNat
+  phentsize eh  := eh.phentsize.toNat
+  phnum eh      := eh.phnum.toNat
+  shentsize eh  := eh.shentsize.toNat
+  shnum eh      := eh.shnum.toNat
+  shstrndx eh   := eh.shstrndx.toNat
+
 /-- A simple parser for extracting an ELF32 header, just a test, no validation -/
 def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := { 
   ident     := NByteArray.extract bs 0x10 (by omega),
@@ -164,26 +178,30 @@ def mkELF32Header? (bs: ByteArray) : Except String ELF32Header :=
   if h : bs.size ≥ 0x34 then .ok $ mkELF32Header bs h
   else .error "We're looking for a 32 bit ELF header but there aren't enough bytes."
 
-def ELF32Header.toRawELFHeader (eh : ELF32Header) : RawELFHeader := {
-  ident     := eh.ident
-  type      := eh.type.toNat
-  machine   := eh.machine.toNat
-  version   := eh.version.toNat
-  entry     := eh.entry.toNat
-  phoff     := eh.phoff.toNat
-  shoff     := eh.shoff.toNat
-  flags     := eh.flags.toNat
-  ehsize    := eh.ehsize.toNat
-  phentsize := eh.phentsize.toNat
-  phnum     := eh.phnum.toNat
-  shentsize := eh.shentsize.toNat
-  shnum     := eh.shnum.toNat
-  shstrndx  := eh.shstrndx.toNat
-}
+inductive RawELFHeader :=
+  | elf32 : ELF32Header → RawELFHeader
+  | elf64 : ELF64Header → RawELFHeader
+  deriving Repr
+
+instance : ELFHeader RawELFHeader where
+  ident eh      := match eh with | .elf64 eh => eh.ident           | .elf32 eh => eh.ident
+  type eh       := match eh with | .elf64 eh => eh.type.toNat      | .elf32 eh => eh.type.toNat
+  machine eh    := match eh with | .elf64 eh => eh.machine.toNat   | .elf32 eh => eh.machine.toNat
+  version eh    := match eh with | .elf64 eh => eh.version.toNat   | .elf32 eh => eh.version.toNat
+  entry eh      := match eh with | .elf64 eh => eh.entry.toNat     | .elf32 eh => eh.entry.toNat
+  phoff eh      := match eh with | .elf64 eh => eh.phoff.toNat     | .elf32 eh => eh.phoff.toNat
+  shoff eh      := match eh with | .elf64 eh => eh.shoff.toNat     | .elf32 eh => eh.shoff.toNat
+  flags eh      := match eh with | .elf64 eh => eh.flags.toNat     | .elf32 eh => eh.flags.toNat
+  ehsize eh     := match eh with | .elf64 eh => eh.ehsize.toNat    | .elf32 eh => eh.ehsize.toNat
+  phentsize eh  := match eh with | .elf64 eh => eh.phentsize.toNat | .elf32 eh => eh.phentsize.toNat
+  phnum eh      := match eh with | .elf64 eh => eh.phnum.toNat     | .elf32 eh => eh.phnum.toNat
+  shentsize eh  := match eh with | .elf64 eh => eh.shentsize.toNat | .elf32 eh => eh.shentsize.toNat
+  shnum eh      := match eh with | .elf64 eh => eh.shnum.toNat     | .elf32 eh => eh.shnum.toNat
+  shstrndx eh   := match eh with | .elf64 eh => eh.shstrndx.toNat  | .elf32 eh => eh.shstrndx.toNat
 
 def mkRawELFHeader? (bs : ByteArray) : Except String RawELFHeader :=
   if h : bs.size < 5 then throw "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."
   else match bs.get ⟨0x4, by omega⟩ with
-  | 1 => ELF32Header.toRawELFHeader <$> mkELF32Header? bs
-  | 2 => ELF64Header.toRawELFHeader <$> mkELF64Header? bs
+  | 1 => .elf32 <$> mkELF32Header? bs
+  | 2 => .elf64 <$> mkELF64Header? bs
   | _ => throw "Can't determine if this is a 32 of 64 bit binary (byte 0x5 of the elf header is bad)"

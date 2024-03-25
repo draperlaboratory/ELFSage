@@ -12,6 +12,7 @@ inductive Dynamic.FieldInterpretation where
   | d_val     : FieldInterpretation
   | d_ptr     : FieldInterpretation
   | d_ignored : FieldInterpretation
+  deriving Repr
 
 inductive Dynamic.Tag where
   /-- [dt_null] marks the end of the dynamic array -/
@@ -188,22 +189,21 @@ def Dynamic.Tag.toFieldInterpretation
     then .ok .d_ptr
     else .error s!"unknown dynamic tag prevents interpretation of dt_un"  
 
-structure RawDynamicEntry where
-  d_tag : Int
-  d_un  : DynamicUnion Nat Nat
-  deriving Repr
+class DynamicEntry (α : Type) where
+  d_tag : α → Int
+  d_un  : α → DynamicUnion Nat Nat
 
 structure ELF32DynamicEntry where
   d_tag  : elf32_sword
   d_un   : DynamicUnion elf32_word elf32_addr
+  deriving Repr
 
-def ELF32DynamicEntry.toRawDynamicEntry (de : ELF32DynamicEntry) : RawDynamicEntry := {
-  d_tag := de.d_tag.toInt
-  d_un := match de.d_un with
+instance : DynamicEntry ELF32DynamicEntry where
+  d_tag de := de.d_tag.toInt
+  d_un de := match de.d_un with
     | .d_val v => .d_val v.toNat
     | .d_ptr p => .d_ptr p.toNat
     | .d_ignored bs => .d_ignored bs
-}
 
 def mkELF32DynamicEntry?
   (isBigEndian : Bool)
@@ -227,14 +227,14 @@ def mkELF32DynamicEntry?
 structure ELF64DynamicEntry where
   d_tag  : elf64_sxword
   d_un   : DynamicUnion elf64_xword elf64_addr
+  deriving Repr
 
-def ELF64DynamicEntry.toRawDynamicEntry (de : ELF64DynamicEntry) : RawDynamicEntry := {
-  d_tag := de.d_tag.toInt
-  d_un := match de.d_un with
+instance : DynamicEntry ELF64DynamicEntry where
+  d_tag de := de.d_tag.toInt
+  d_un de := match de.d_un with
     | .d_val v => .d_val v.toNat
     | .d_ptr p => .d_ptr p.toNat
     | .d_ignored bs => .d_ignored bs
-}
 
 def mkELF64DynamicEntry?
   (isBigEndian : Bool)
@@ -255,6 +255,11 @@ def mkELF64DynamicEntry?
   where
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
 
+inductive RawDynamicEntry :=
+  | elf64 : ELF64DynamicEntry → RawDynamicEntry
+  | elf32 : ELF32DynamicEntry → RawDynamicEntry
+  deriving Repr
+
 def mkRawDynamicEntry?
   (bs : ByteArray)
   (is64Bit : Bool)
@@ -264,11 +269,11 @@ def mkRawDynamicEntry?
   match is64Bit with
   | true   => 
     if h : bs.size - offset ≥ 0x10
-    then ELF64DynamicEntry.toRawDynamicEntry <$> mkELF64DynamicEntry? isBigendian bs offset h
+    then .elf64 <$> mkELF64DynamicEntry? isBigendian bs offset h
     else throw $ err 0x10
   | false  => 
     if h : bs.size - offset ≥ 0x8
-    then ELF32DynamicEntry.toRawDynamicEntry <$> mkELF32DynamicEntry? isBigendian bs offset h
+    then .elf32 <$> mkELF32DynamicEntry? isBigendian bs offset h
     else throw $ err 0x08
   where
     err size := s! "Dynamic entry offset {offset} doesn't leave enough space for the entry, " ++
