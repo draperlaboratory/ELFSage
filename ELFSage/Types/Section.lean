@@ -1,4 +1,5 @@
 import ELFSage.Types.SectionHeaderTable
+import ELFSage.Constants.SectionHeaderTable
 
 structure ELF32InterpretedSection where
   /-- Name of the section -/
@@ -83,7 +84,8 @@ def ELF64SectionHeaderTableEntry.toSection?
   (bytes : ByteArray)
   (name : Option String)
   : Except String ELF64InterpretedSection :=
-  if bytes.size < shte.sh_offset.toNat + shte.sh_size.toNat
+  if bytes.size < shte.sh_offset.toNat + shte.sh_size.toNat 
+     ∧ shte.sh_type.toNat != ELFSectionHeaderTableEntry.Type.SHT_NOBITS -- sections of type NOBITS don't correspond to bytes in the file
   then .error $
     s! "A section specified in the section header table at offset {shte.sh_offset}, " ++
     s! "with size {shte.sh_size}, runs off the end of the binary."
@@ -98,6 +100,9 @@ def ELF64SectionHeaderTableEntry.toSection?
     section_info    := shte.sh_info.toNat
     section_align   := shte.sh_addralign.toNat
     section_entsize := shte.sh_entsize.toNat
-    section_body    := bytes.extract shte.sh_offset.toNat (shte.sh_offset.toNat + shte.sh_size.toNat)
+    section_body    := 
+      if shte.sh_type.toNat == ELFSectionHeaderTableEntry.Type.SHT_NOBITS
+      then ByteArray.mkEmpty 0
+      else bytes.extract shte.sh_offset.toNat (shte.sh_offset.toNat + shte.sh_size.toNat)
     section_name_as_string := name
   }
