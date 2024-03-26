@@ -1,5 +1,6 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
+import ELFSage.Types.ELFHeader
 
 class ProgramHeaderTableEntry (α : Type) where
   /-- Type of the segment -/
@@ -158,3 +159,19 @@ def mkRawProgramHeaderTableEntry?
   match is64Bit with
   | true  => .elf64 <$> mkELF64ProgramHeaderTableEntry? isBigendian bs offset
   | false => .elf32 <$> mkELF32ProgramHeaderTableEntry? isBigendian bs offset
+
+inductive RawProgramHeaderTable where
+  | elf32 : List ELF32ProgramHeaderTableEntry → RawProgramHeaderTable
+  | elf64 : List ELF64ProgramHeaderTableEntry → RawProgramHeaderTable
+
+def ELFHeader.mkRawProgramHeaderTable? 
+  [ELFHeader α]
+  (eh : α)
+  (bytes : ByteArray)
+  : Except String RawProgramHeaderTable := 
+  let shoffsets := (List.range (ELFHeader.phnum eh)).map λidx ↦ ELFHeader.phoff eh + ELFHeader.phentsize eh * idx
+  let isBigendian := ELFHeader.isBigendian eh
+  let is64Bit := ELFHeader.is64Bit eh
+  if is64Bit
+  then .elf64 <$> List.mapM (λoffset ↦ mkELF64ProgramHeaderTableEntry? isBigendian bytes offset) shoffsets
+  else .elf32 <$> List.mapM (λoffset ↦ mkELF32ProgramHeaderTableEntry? isBigendian bytes offset) shoffsets
