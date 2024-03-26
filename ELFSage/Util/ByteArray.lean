@@ -81,13 +81,37 @@ instance : Repr (NByteArray n) where
     Nat.toDigits 16 byte.toNat 
     |> (λl ↦ if l.length == 1 then '0' :: l else l) 
     |> List.asString
-    
 
 instance : Repr ByteArray where
   reprPrec nbs := reprPrec $ nbs.data.toList.map λbyte ↦ 
     Nat.toDigits 16 byte.toNat 
     |> (λl ↦ if l.length == 1 then '0' :: l else l) 
     |> List.asString
+
+/- 
+
+ These are some simple theorems related to Arrays and ByteArrays. They start
+ from the function Array.extract.loop, associated with Array.extract:
+
+ https://github.com/leanprover/lean4/blob/6fce8f7d5cd18a4419bca7fd51780c71c9b1cc5a/src/Init/Prelude.lean#L2722
+
+ `Array.extract.loop src i j dst` essentially returns dst if i is 0 or
+ j ≥ src.size, and otherwise calls itself as `Array.extract.loop src (i - 1) (j
+ + 1) (dst ++ src[j])`.
+
+ Some things it would be nice to prove, since it would give us an instance of
+
+ https://leanprover-community.github.io/mathlib4_docs/Mathlib/Algebra/Group/Defs.html#AddCancelMonoid
+
+ ∀{a b: ByteArray}, (a ++ b).size = a.size + b.size
+ ∀{a b c: ByteArray}, a ++ b = c ++ b ↔ a = c
+ ∀{a b c: ByteArray}, a ++ b = a ++ c ↔ b = c
+ ∀{a b c: ByteArray}, (a ++ b) ++ c = a ++ (b ++ c)
+ ∀{a: ByteArray}, a ++ ByteArray.empty = a
+ ∀{a: ByteArray}, ByteArray.empty ++ a = a
+
+ It would also be good to improve NByteArray extract to take an offset in addition to a length
+-/ 
 
 theorem Array.extract_len_aux {src: Array α} :
    ∀b l dst, (b + l ≤ src.size) →
