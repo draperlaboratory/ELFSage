@@ -78,6 +78,15 @@ def mkELF64ProgramHeaderTableEntry?
   else .error $ "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
                 "which requires 0x20 bytes."
 
+def ELF64Header.mkELF64ProgramHeaderTable?
+  (eh : ELF64Header)
+  (bytes : ByteArray)
+  : Except String (List ELF64ProgramHeaderTableEntry):= 
+  let isBigendian := ELFHeader.isBigendian eh
+  List.mapM 
+    (λoffset ↦ mkELF64ProgramHeaderTableEntry? isBigendian bytes offset)
+    (ELFHeader.getProgramHeaderOffsets eh)
+
 structure ELF32ProgramHeaderTableEntry where
   /-- Type of the segment -/
   p_type   : elf32_word
@@ -88,16 +97,16 @@ structure ELF32ProgramHeaderTableEntry where
   /-- Physical address for segment -/
   p_paddr  : elf32_addr
   /-- Size of segment in file, in bytes -/
-  p_filesz : elf64_word
+  p_filesz : elf32_word
   /-- Size of segment in memory image, in bytes -/
-  p_memsz  : elf64_word
+  p_memsz  : elf32_word
   /-- Segment flags -/
   p_flags  : elf32_word
   /-- Segment alignment memory for memory and file -/
   p_align  : elf64_word
   deriving Repr
 
-instance : ProgramHeaderTableEntry ELF64ProgramHeaderTableEntry where
+instance : ProgramHeaderTableEntry ELF32ProgramHeaderTableEntry where
   p_type ph   := ph.p_type.toNat
   p_flags ph  := ph.p_flags.toNat
   p_offset ph := ph.p_offset.toNat
@@ -135,6 +144,15 @@ def mkELF32ProgramHeaderTableEntry?
   else .error $ "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
                 "which requires 0x20 bytes."
 
+def ELF32Header.mkELF32ProgramHeaderTable?
+  (eh : ELF32Header)
+  (bytes : ByteArray)
+  : Except String (List ELF32ProgramHeaderTableEntry):= 
+  let isBigendian := ELFHeader.isBigendian eh
+  List.mapM 
+    (λoffset ↦ mkELF32ProgramHeaderTableEntry? isBigendian bytes offset) 
+    (ELFHeader.getProgramHeaderOffsets eh)
+
 inductive RawProgramHeaderTableEntry where
   | elf32 : ELF32ProgramHeaderTableEntry → RawProgramHeaderTableEntry
   | elf64 : ELF64ProgramHeaderTableEntry → RawProgramHeaderTableEntry
@@ -163,6 +181,10 @@ def mkRawProgramHeaderTableEntry?
 inductive RawProgramHeaderTable where
   | elf32 : List ELF32ProgramHeaderTableEntry → RawProgramHeaderTable
   | elf64 : List ELF64ProgramHeaderTableEntry → RawProgramHeaderTable
+
+def RawProgramHeaderTable.length : RawProgramHeaderTable → Nat 
+  | elf32 pht => pht.length
+  | elf64 pht => pht.length
 
 def ELFHeader.mkRawProgramHeaderTable? 
   [ELFHeader α]

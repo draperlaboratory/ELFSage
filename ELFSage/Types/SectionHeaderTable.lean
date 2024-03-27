@@ -91,6 +91,14 @@ def mkELF64SectionHeaderTableEntry?
     s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
       "which requires 0x28 bytes."
 
+def ELF64Header.mkELF64SectionHeaderTable?
+  (eh : ELF64Header)
+  (bytes : ByteArray)
+  : Except String (List ELF64SectionHeaderTableEntry) := 
+  let isBigendian := ELFHeader.isBigendian eh
+  let shoffsets := (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+  List.mapM (λoffset ↦ mkELF64SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
+
 structure ELF32SectionHeaderTableEntry where
   /-- Name of the section -/
   sh_name      : elf32_word
@@ -157,6 +165,14 @@ def mkELF32SectionHeaderTableEntry?
     s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
       "which requires 0x28 bytes."
 
+def ELF32Header.mkELF32SectionHeaderTable?
+  (eh : ELF32Header)
+  (bytes : ByteArray)
+  : Except String (List ELF32SectionHeaderTableEntry) := 
+  let isBigendian := ELFHeader.isBigendian eh
+  let shoffsets := (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+  List.mapM (λoffset ↦ mkELF32SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
+
 inductive RawSectionHeaderTableEntry :=
   | elf32 : ELF32SectionHeaderTableEntry → RawSectionHeaderTableEntry
   | elf64 : ELF64SectionHeaderTableEntry → RawSectionHeaderTableEntry
@@ -187,15 +203,3 @@ def mkRawSectionHeaderTableEntry?
 inductive RawSectionHeaderTable :=
   | elf32 : List ELF32SectionHeaderTableEntry → RawSectionHeaderTable
   | elf64 : List ELF64SectionHeaderTableEntry → RawSectionHeaderTable
-
-def ELFHeader.mkRawSectionHeaderTable?
-  [ELFHeader α]
-  (eh : α)
-  (bytes : ByteArray)
-  : Except String RawSectionHeaderTable := 
-  let shoffsets := (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
-  let isBigendian := ELFHeader.isBigendian eh
-  let is64Bit := ELFHeader.is64Bit eh
-  if is64Bit
-  then .elf64 <$> List.mapM (λoffset ↦ mkELF64SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
-  else .elf32 <$> List.mapM (λoffset ↦ mkELF32SectionHeaderTableEntry? isBigendian bytes offset) shoffsets

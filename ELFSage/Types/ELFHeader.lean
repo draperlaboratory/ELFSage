@@ -31,7 +31,14 @@ class ELFHeader (α : Type) where
   shstrndx : α → Nat
 
 def ELFHeader.isBigendian [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x5] == 2
+
 def ELFHeader.is64Bit [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x4] == 2
+
+def ELFHeader.getSectionHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
+  (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+
+def ELFHeader.getProgramHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
+  (List.range (ELFHeader.phnum eh)).map λidx ↦ ELFHeader.phoff eh + ELFHeader.phentsize eh * idx
 
 structure ELF64Header where
   /-- Identification field -/
@@ -137,7 +144,7 @@ structure ELF32Header where
   shstrndx : elf32_half
   deriving Repr
 
-instance : ELFHeader ELF64Header where
+instance : ELFHeader ELF32Header where
   ident eh      := eh.ident
   type eh       := eh.type.toNat
   machine eh    := eh.machine.toNat
