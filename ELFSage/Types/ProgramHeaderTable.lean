@@ -191,7 +191,7 @@ def ELFHeader.mkRawProgramHeaderTable?
   (eh : α)
   (bytes : ByteArray)
   : Except String RawProgramHeaderTable := 
-  let shoffsets := (List.range (ELFHeader.phnum eh)).map λidx ↦ ELFHeader.phoff eh + ELFHeader.phentsize eh * idx
+  let shoffsets := (List.range (ELFHeader.e_phnum eh)).map λidx ↦ ELFHeader.e_phoff eh + ELFHeader.e_phentsize eh * idx
   let isBigendian := ELFHeader.isBigendian eh
   let is64Bit := ELFHeader.is64Bit eh
   if is64Bit

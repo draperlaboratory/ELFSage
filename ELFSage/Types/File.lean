@@ -67,9 +67,9 @@ def getInhabitedRanges
   [SectionHeaderTableEntry β] (sht : List β) 
   [ProgramHeaderTableEntry γ] (pht : List γ)
   : List (Nat × Nat) := 
-    (0, ELFHeader.ehsize eh) --ELF header
-    :: (ELFHeader.phoff eh, ELFHeader.phoff eh + (ELFHeader.phnum eh * ELFHeader.phentsize eh)) --Program header entries
-    :: (ELFHeader.shoff eh, ELFHeader.shoff eh + (ELFHeader.shnum eh * ELFHeader.shentsize eh)) --Section header entries
+    (0, ELFHeader.e_ehsize eh) --ELF header
+    :: (ELFHeader.e_phoff eh, ELFHeader.e_phoff eh + (ELFHeader.e_phnum eh * ELFHeader.e_phentsize eh)) --Program header entries
+    :: (ELFHeader.e_shoff eh, ELFHeader.e_shoff eh + (ELFHeader.e_shnum eh * ELFHeader.e_shentsize eh)) --Section header entries
     :: pht.map (λphte ↦ (ProgramHeaderTableEntry.p_offset phte, ProgramHeaderTableEntry.p_offset phte + ProgramHeaderTableEntry.p_filesz phte))  --segments
     ++ sht.map (λshte ↦ (SectionHeaderTableEntry.sh_offset shte, SectionHeaderTableEntry.sh_offset shte + SectionHeaderTableEntry.sh_size shte)) --sections
 
@@ -109,7 +109,7 @@ def getInterpretedSections
   [ELFHeader β] (eh : β)
   (bytes : ByteArray)
   : Except String (List InterpretedSection) := do
-  let shstrndx := ELFHeader.shstrndx eh
+  let shstrndx := ELFHeader.e_shstrndx eh
   let section_names ← getSectionNames shstrndx sht bytes
   sht.mapM $ λshte ↦ 
     if SectionHeaderTableEntry.sh_name shte == 0 

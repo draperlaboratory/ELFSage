@@ -2,107 +2,107 @@ import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 
 class ELFHeader (α : Type) where
-  ident    : α → NByteArray 16
+  e_ident    : α → NByteArray 16
   /-- The object file type -/
-  type     : α → Nat
+  e_type     : α → Nat
   /-- Required machine architecture -/
-  machine  : α → Nat
+  e_machine  : α → Nat
   /-- Object file version -/
-  version  : α → Nat
+  e_version  : α → Nat
   /-- Virtual address for transfer of control -/
-  entry    : α → Nat
+  e_entry    : α → Nat
   /-- Program header table offset in bytes -/
-  phoff    : α → Nat
+  e_phoff    : α → Nat
   /-- Section header table offset in bytes -/
-  shoff    : α → Nat
+  e_shoff    : α → Nat
   /-- Processor-specific flags -/
-  flags    : α → Nat
+  e_flags    : α → Nat
   /-- ELF header size in bytes -/
-  ehsize   : α → Nat
+  e_ehsize   : α → Nat
   /-- Program header table entry size in bytes -/
-  phentsize: α → Nat
+  e_phentsize: α → Nat
   /-- Number of entries in program header table -/
-  phnum    : α → Nat
+  e_phnum    : α → Nat
   /-- Section header table entry size in bytes -/
-  shentsize: α → Nat
+  e_shentsize: α → Nat
   /-- Number of entries in section header table -/
-  shnum    : α → Nat
+  e_shnum    : α → Nat
   /-- Section header table entry for section name string table -/
-  shstrndx : α → Nat
+  e_shstrndx : α → Nat
 
-def ELFHeader.isBigendian [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x5] == 2
+def ELFHeader.isBigendian [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := e_ident eh; bytes[0x5] == 2
 
-def ELFHeader.is64Bit [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := ident eh; bytes[0x4] == 2
+def ELFHeader.is64Bit [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := e_ident eh; bytes[0x4] == 2
 
 def ELFHeader.getSectionHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
-  (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+  (List.range (ELFHeader.e_shnum eh)).map λidx ↦ ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * idx
 
 def ELFHeader.getProgramHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
-  (List.range (ELFHeader.phnum eh)).map λidx ↦ ELFHeader.phoff eh + ELFHeader.phentsize eh * idx
+  (List.range (ELFHeader.e_phnum eh)).map λidx ↦ ELFHeader.e_phoff eh + ELFHeader.e_phentsize eh * idx
 
 structure ELF64Header where
   /-- Identification field -/
-  ident    : NByteArray 16
+  e_ident    : NByteArray 16
   /-- The object file type -/
-  type     : elf64_half
+  e_type     : elf64_half
   /-- Required machine architecture -/
-  machine  : elf64_half
+  e_machine  : elf64_half
   /-- Object file version -/
-  version  : elf64_word
+  e_version  : elf64_word
   /-- Virtual address for transfer of control -/
-  entry    : elf64_addr
+  e_entry    : elf64_addr
   /-- Program header table offset in bytes -/
-  phoff    : elf64_off
+  e_phoff    : elf64_off
   /-- Section header table offset in bytes -/
-  shoff    : elf64_off
+  e_shoff    : elf64_off
   /-- Processor-specific flags -/
-  flags    : elf64_word
+  e_flags    : elf64_word
   /-- ELF header size in bytes -/
-  ehsize   : elf64_half
+  e_ehsize   : elf64_half
   /-- Program header table entry size in bytes -/
-  phentsize: elf64_half
+  e_phentsize: elf64_half
   /-- Number of entries in program header table -/
-  phnum    : elf64_half
+  e_phnum    : elf64_half
   /-- Section header table entry size in bytes -/
-  shentsize: elf64_half
+  e_shentsize: elf64_half
   /-- Number of entries in section header table -/
-  shnum    : elf64_half
+  e_shnum    : elf64_half
   /-- Section header table entry for section name string table -/
-  shstrndx : elf64_half
+  e_shstrndx : elf64_half
   deriving Repr
 
 instance : ELFHeader ELF64Header where
-  ident eh      := eh.ident
-  type eh       := eh.type.toNat
-  machine eh    := eh.machine.toNat
-  version eh    := eh.version.toNat
-  entry eh      := eh.entry.toNat
-  phoff eh      := eh.phoff.toNat
-  shoff eh      := eh.shoff.toNat
-  flags eh      := eh.flags.toNat
-  ehsize eh     := eh.ehsize.toNat
-  phentsize eh  := eh.phentsize.toNat
-  phnum eh      := eh.phnum.toNat
-  shentsize eh  := eh.shentsize.toNat
-  shnum eh      := eh.shnum.toNat
-  shstrndx eh   := eh.shstrndx.toNat
+  e_ident eh      := eh.e_ident
+  e_type eh       := eh.e_type.toNat
+  e_machine eh    := eh.e_machine.toNat
+  e_version eh    := eh.e_version.toNat
+  e_entry eh      := eh.e_entry.toNat
+  e_phoff eh      := eh.e_phoff.toNat
+  e_shoff eh      := eh.e_shoff.toNat
+  e_flags eh      := eh.e_flags.toNat
+  e_ehsize eh     := eh.e_ehsize.toNat
+  e_phentsize eh  := eh.e_phentsize.toNat
+  e_phnum eh      := eh.e_phnum.toNat
+  e_shentsize eh  := eh.e_shentsize.toNat
+  e_shnum eh      := eh.e_shnum.toNat
+  e_shstrndx eh   := eh.e_shstrndx.toNat
 
 /-- A simple parser for extracting an ELF64 header, just a test, no validation -/
 def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := { 
-  ident     := NByteArray.extract bs 0x10 (by omega),
-  type      := getUInt16from 0x10 (by omega),
-  machine   := getUInt16from 0x12 (by omega),
-  version   := getUInt32from 0x14 (by omega),
-  entry     := getUInt64from 0x18 (by omega),
-  phoff     := getUInt64from 0x20 (by omega),
-  shoff     := getUInt64from 0x28 (by omega),
-  flags     := getUInt32from 0x30 (by omega),
-  ehsize    := getUInt16from 0x34 (by omega),
-  phentsize := getUInt16from 0x36 (by omega),
-  phnum     := getUInt16from 0x38 (by omega),
-  shentsize := getUInt16from 0x3A (by omega),
-  shnum     := getUInt16from 0x3C (by omega),
-  shstrndx  := getUInt16from 0x3E (by omega),
+  e_ident     := NByteArray.extract bs 0x10 (by omega),
+  e_type      := getUInt16from 0x10 (by omega),
+  e_machine   := getUInt16from 0x12 (by omega),
+  e_version   := getUInt32from 0x14 (by omega),
+  e_entry     := getUInt64from 0x18 (by omega),
+  e_phoff     := getUInt64from 0x20 (by omega),
+  e_shoff     := getUInt64from 0x28 (by omega),
+  e_flags     := getUInt32from 0x30 (by omega),
+  e_ehsize    := getUInt16from 0x34 (by omega),
+  e_phentsize := getUInt16from 0x36 (by omega),
+  e_phnum     := getUInt16from 0x38 (by omega),
+  e_shentsize := getUInt16from 0x3A (by omega),
+  e_shnum     := getUInt16from 0x3C (by omega),
+  e_shstrndx  := getUInt16from 0x3E (by omega),
 } where
   isBigEndian := bs.get ⟨0x5,by omega⟩ == 2
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
@@ -115,67 +115,67 @@ def mkELF64Header? (bs: ByteArray) : Except String ELF64Header :=
 
 structure ELF32Header where
   /-- Identification field -/
-  ident    : NByteArray 16
+  e_ident    : NByteArray 16
   /-- The object file type -/
-  type     : elf32_half
+  e_type     : elf32_half
   /-- Required machine architecture -/
-  machine  : elf32_half
+  e_machine  : elf32_half
   /-- Object file version -/
-  version  : elf32_word
+  e_version  : elf32_word
   /-- Virtual address for transfer of control -/
-  entry    : elf32_addr
+  e_entry    : elf32_addr
   /-- Program header table offset in bytes -/
-  phoff    : elf32_off
+  e_phoff    : elf32_off
   /-- Section header table offset in bytes -/
-  shoff    : elf32_off
+  e_shoff    : elf32_off
   /-- Processor-specific flags -/
-  flags    : elf32_word
+  e_flags    : elf32_word
   /-- ELF header size in bytes -/
-  ehsize   : elf32_half
+  e_ehsize   : elf32_half
   /-- Program header table entry size in bytes -/
-  phentsize: elf32_half
+  e_phentsize: elf32_half
   /-- Number of entries in program header table -/
-  phnum    : elf32_half
+  e_phnum    : elf32_half
   /-- Section header table entry size in bytes -/
-  shentsize: elf32_half
+  e_shentsize: elf32_half
   /-- Number of entries in section header table -/
-  shnum    : elf32_half
+  e_shnum    : elf32_half
   /-- Section header table entry for section name string table -/
-  shstrndx : elf32_half
+  e_shstrndx : elf32_half
   deriving Repr
 
 instance : ELFHeader ELF32Header where
-  ident eh      := eh.ident
-  type eh       := eh.type.toNat
-  machine eh    := eh.machine.toNat
-  version eh    := eh.version.toNat
-  entry eh      := eh.entry.toNat
-  phoff eh      := eh.phoff.toNat
-  shoff eh      := eh.shoff.toNat
-  flags eh      := eh.flags.toNat
-  ehsize eh     := eh.ehsize.toNat
-  phentsize eh  := eh.phentsize.toNat
-  phnum eh      := eh.phnum.toNat
-  shentsize eh  := eh.shentsize.toNat
-  shnum eh      := eh.shnum.toNat
-  shstrndx eh   := eh.shstrndx.toNat
+  e_ident eh      := eh.e_ident
+  e_type eh       := eh.e_type.toNat
+  e_machine eh    := eh.e_machine.toNat
+  e_version eh    := eh.e_version.toNat
+  e_entry eh      := eh.e_entry.toNat
+  e_phoff eh      := eh.e_phoff.toNat
+  e_shoff eh      := eh.e_shoff.toNat
+  e_flags eh      := eh.e_flags.toNat
+  e_ehsize eh     := eh.e_ehsize.toNat
+  e_phentsize eh  := eh.e_phentsize.toNat
+  e_phnum eh      := eh.e_phnum.toNat
+  e_shentsize eh  := eh.e_shentsize.toNat
+  e_shnum eh      := eh.e_shnum.toNat
+  e_shstrndx eh   := eh.e_shstrndx.toNat
 
 /-- A simple parser for extracting an ELF32 header, just a test, no validation -/
 def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := { 
-  ident     := NByteArray.extract bs 0x10 (by omega),
-  type      := getUInt16from 0x10 (by omega),
-  machine   := getUInt16from 0x12 (by omega),
-  version   := getUInt32from 0x14 (by omega),
-  entry     := getUInt32from 0x18 (by omega),
-  phoff     := getUInt32from 0x1C (by omega),
-  shoff     := getUInt32from 0x20 (by omega),
-  flags     := getUInt32from 0x24 (by omega),
-  ehsize    := getUInt16from 0x28 (by omega),
-  phentsize := getUInt16from 0x2A (by omega),
-  phnum     := getUInt16from 0x2C (by omega),
-  shentsize := getUInt16from 0x2E (by omega),
-  shnum     := getUInt16from 0x30 (by omega),
-  shstrndx  := getUInt16from 0x32 (by omega),
+  e_ident     := NByteArray.extract bs 0x10 (by omega),
+  e_type      := getUInt16from 0x10 (by omega),
+  e_machine   := getUInt16from 0x12 (by omega),
+  e_version   := getUInt32from 0x14 (by omega),
+  e_entry     := getUInt32from 0x18 (by omega),
+  e_phoff     := getUInt32from 0x1C (by omega),
+  e_shoff     := getUInt32from 0x20 (by omega),
+  e_flags     := getUInt32from 0x24 (by omega),
+  e_ehsize    := getUInt16from 0x28 (by omega),
+  e_phentsize := getUInt16from 0x2A (by omega),
+  e_phnum     := getUInt16from 0x2C (by omega),
+  e_shentsize := getUInt16from 0x2E (by omega),
+  e_shnum     := getUInt16from 0x30 (by omega),
+  e_shstrndx  := getUInt16from 0x32 (by omega),
 } where
   isBigEndian := bs.get ⟨0x5,by omega⟩ == 2
   getUInt16from := if isBigEndian then bs.getUInt16BEfrom else bs.getUInt16LEfrom
@@ -191,20 +191,20 @@ inductive RawELFHeader :=
   deriving Repr
 
 instance : ELFHeader RawELFHeader where
-  ident eh      := match eh with | .elf64 eh => eh.ident           | .elf32 eh => eh.ident
-  type eh       := match eh with | .elf64 eh => eh.type.toNat      | .elf32 eh => eh.type.toNat
-  machine eh    := match eh with | .elf64 eh => eh.machine.toNat   | .elf32 eh => eh.machine.toNat
-  version eh    := match eh with | .elf64 eh => eh.version.toNat   | .elf32 eh => eh.version.toNat
-  entry eh      := match eh with | .elf64 eh => eh.entry.toNat     | .elf32 eh => eh.entry.toNat
-  phoff eh      := match eh with | .elf64 eh => eh.phoff.toNat     | .elf32 eh => eh.phoff.toNat
-  shoff eh      := match eh with | .elf64 eh => eh.shoff.toNat     | .elf32 eh => eh.shoff.toNat
-  flags eh      := match eh with | .elf64 eh => eh.flags.toNat     | .elf32 eh => eh.flags.toNat
-  ehsize eh     := match eh with | .elf64 eh => eh.ehsize.toNat    | .elf32 eh => eh.ehsize.toNat
-  phentsize eh  := match eh with | .elf64 eh => eh.phentsize.toNat | .elf32 eh => eh.phentsize.toNat
-  phnum eh      := match eh with | .elf64 eh => eh.phnum.toNat     | .elf32 eh => eh.phnum.toNat
-  shentsize eh  := match eh with | .elf64 eh => eh.shentsize.toNat | .elf32 eh => eh.shentsize.toNat
-  shnum eh      := match eh with | .elf64 eh => eh.shnum.toNat     | .elf32 eh => eh.shnum.toNat
-  shstrndx eh   := match eh with | .elf64 eh => eh.shstrndx.toNat  | .elf32 eh => eh.shstrndx.toNat
+  e_ident eh      := match eh with | .elf64 eh => eh.e_ident           | .elf32 eh => eh.e_ident
+  e_type eh       := match eh with | .elf64 eh => eh.e_type.toNat      | .elf32 eh => eh.e_type.toNat
+  e_machine eh    := match eh with | .elf64 eh => eh.e_machine.toNat   | .elf32 eh => eh.e_machine.toNat
+  e_version eh    := match eh with | .elf64 eh => eh.e_version.toNat   | .elf32 eh => eh.e_version.toNat
+  e_entry eh      := match eh with | .elf64 eh => eh.e_entry.toNat     | .elf32 eh => eh.e_entry.toNat
+  e_phoff eh      := match eh with | .elf64 eh => eh.e_phoff.toNat     | .elf32 eh => eh.e_phoff.toNat
+  e_shoff eh      := match eh with | .elf64 eh => eh.e_shoff.toNat     | .elf32 eh => eh.e_shoff.toNat
+  e_flags eh      := match eh with | .elf64 eh => eh.e_flags.toNat     | .elf32 eh => eh.e_flags.toNat
+  e_ehsize eh     := match eh with | .elf64 eh => eh.e_ehsize.toNat    | .elf32 eh => eh.e_ehsize.toNat
+  e_phentsize eh  := match eh with | .elf64 eh => eh.e_phentsize.toNat | .elf32 eh => eh.e_phentsize.toNat
+  e_phnum eh      := match eh with | .elf64 eh => eh.e_phnum.toNat     | .elf32 eh => eh.e_phnum.toNat
+  e_shentsize eh  := match eh with | .elf64 eh => eh.e_shentsize.toNat | .elf32 eh => eh.e_shentsize.toNat
+  e_shnum eh      := match eh with | .elf64 eh => eh.e_shnum.toNat     | .elf32 eh => eh.e_shnum.toNat
+  e_shstrndx eh   := match eh with | .elf64 eh => eh.e_shstrndx.toNat  | .elf32 eh => eh.e_shstrndx.toNat
 
 def mkRawELFHeader? (bs : ByteArray) : Except String RawELFHeader :=
   if h : bs.size < 5 then throw "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."

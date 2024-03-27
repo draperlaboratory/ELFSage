@@ -34,9 +34,9 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   return ()
 
 def printProgramHeaders (eh : RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.phnum eh] do
+  for idx in [:ELFHeader.e_phnum eh] do
     IO.println s!"\nProgram Header {idx}\n"
-    let offset := ELFHeader.phoff eh + (idx * ELFHeader.phentsize eh)
+    let offset := ELFHeader.e_phoff eh + (idx * ELFHeader.e_phentsize eh)
     match mkRawProgramHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) offset with
     | .error warn => IO.println warn
     | .ok programHeader => IO.println $ repr programHeader
@@ -45,12 +45,12 @@ def printProgramHeaders (eh : RawELFHeader) (bytes : ByteArray) :=
 -- put under Types.ELFFile. Should perhaps signify that the symbol name recovery
 -- is a Unix/System V thing rather than an ELF thing: https://refspecs.linuxfoundation.org/elf/elf.pdf
 def sectionNameByOffset (eh: RawELFHeader) (bytes : ByteArray) (offset : Nat) : Except String String := 
-  let header_offset := ELFHeader.shoff eh + (ELFHeader.shstrndx eh * ELFHeader.shentsize eh)
+  let header_offset := ELFHeader.e_shoff eh + (ELFHeader.e_shstrndx eh * ELFHeader.e_shentsize eh)
   match mkRawSectionHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) header_offset with
   | .error _ => .error "unable to locate the section header table entry for the section names"
   | .ok sh => 
     if h : bytes.size < SectionHeaderTableEntry.sh_offset sh + SectionHeaderTableEntry.sh_size sh
-    then .error "The section header for eh_shstrndx describes a section that overflows the end of the binary"
+    then .error "The section header for the string table of section names describes a section that overflows the end of the binary"
     else 
       let stringtable := mkELFStringTable bytes 
         (SectionHeaderTableEntry.sh_offset sh) 
@@ -59,7 +59,7 @@ def sectionNameByOffset (eh: RawELFHeader) (bytes : ByteArray) (offset : Nat) : 
       pure $ stringtable.stringAt offset
 
 def getSectionByIndex (eh: RawELFHeader) (bytes : ByteArray) (idx: Nat) : Except String RawSectionHeaderTableEntry :=
-  let header_offset := ELFHeader.shoff eh + (idx * ELFHeader.shentsize eh)
+  let header_offset := ELFHeader.e_shoff eh + (idx * ELFHeader.e_shentsize eh)
   match mkRawSectionHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) header_offset with
   | .error warn => .error s!"unable to locate the section header table at index {idx}, {warn}."
   | .ok s => .ok s
@@ -81,9 +81,9 @@ def symbolNameByLinkAndOffset
     pure $ stringtable.stringAt offset
 
 def printSectionHeaders (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.shnum eh] do
+  for idx in [:ELFHeader.e_shnum eh] do
     IO.print s!"\nSection Header {idx}: "
-    let offset := ELFHeader.shoff eh + (idx * ELFHeader.shentsize eh)
+    let offset := ELFHeader.e_shoff eh + (idx * ELFHeader.e_shentsize eh)
     match mkRawSectionHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) offset with
     | .error warn => IO.println warn
     | .ok sh => 
@@ -119,7 +119,7 @@ def getSymbolNameInSection
       eh bytes (SectionHeaderTableEntry.sh_link sh) (SymbolTableEntry.st_name ste)
 
 def printSymbolsForSectionType (eh: RawELFHeader) (bytes : ByteArray) (ent_type : Nat) :=
-  for idx in [:ELFHeader.shnum eh] do
+  for idx in [:ELFHeader.e_shnum eh] do
     match getSectionByIndex eh bytes idx with
     | .error _ => pure ()
     | .ok sh =>
@@ -164,7 +164,7 @@ def printHexForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : 
     dumpBytesAsHex targetSection
 
 def printDynamics (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.shnum eh] do
+  for idx in [:ELFHeader.e_shnum eh] do
     match getSectionByIndex eh bytes idx with
     | .error _ => pure ()
     | .ok sh =>
@@ -198,7 +198,7 @@ def printNotes
     alignTo4 n := n + (n % 4)
 
 def printNoteSections (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.shnum eh] do
+  for idx in [:ELFHeader.e_shnum eh] do
     match getSectionByIndex eh bytes idx with
     | .error _ => pure ()
     | .ok sh =>
@@ -228,7 +228,7 @@ def printRelocationA
       IO.println $ repr ra
 
 def printRelocationSections (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.shnum eh] do
+  for idx in [:ELFHeader.e_shnum eh] do
     match  getSectionByIndex eh bytes idx with
     | .error _ => pure ()
     | .ok sh =>

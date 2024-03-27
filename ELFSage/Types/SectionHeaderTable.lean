@@ -96,7 +96,7 @@ def ELF64Header.mkELF64SectionHeaderTable?
   (bytes : ByteArray)
   : Except String (List ELF64SectionHeaderTableEntry) := 
   let isBigendian := ELFHeader.isBigendian eh
-  let shoffsets := (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+  let shoffsets := (List.range (ELFHeader.e_shnum eh)).map λidx ↦ ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * idx
   List.mapM (λoffset ↦ mkELF64SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
 
 structure ELF32SectionHeaderTableEntry where
@@ -170,7 +170,7 @@ def ELF32Header.mkELF32SectionHeaderTable?
   (bytes : ByteArray)
   : Except String (List ELF32SectionHeaderTableEntry) := 
   let isBigendian := ELFHeader.isBigendian eh
-  let shoffsets := (List.range (ELFHeader.shnum eh)).map λidx ↦ ELFHeader.shoff eh + ELFHeader.shentsize eh * idx
+  let shoffsets := (List.range (ELFHeader.e_shnum eh)).map λidx ↦ ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * idx
   List.mapM (λoffset ↦ mkELF32SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
 
 inductive RawSectionHeaderTableEntry :=
