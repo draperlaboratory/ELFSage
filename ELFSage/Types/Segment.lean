@@ -45,3 +45,9 @@ def ProgramHeaderTableEntry.toSegment?
       (p_flags phte / 1) % 2  == 0,  -- Executable Segment
     ⟩
   }
+
+def getInterpretedSegments
+  [ProgramHeaderTableEntry α] (pht : List α)
+  (bytes : ByteArray)
+  : Except String (List InterpretedSegment) :=
+  pht.mapM $ λphte ↦ ProgramHeaderTableEntry.toSegment? phte bytes
