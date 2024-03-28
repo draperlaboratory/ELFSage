@@ -49,5 +49,7 @@ def ProgramHeaderTableEntry.toSegment?
 def getInterpretedSegments
   [ProgramHeaderTableEntry α] (pht : List α)
   (bytes : ByteArray)
-  : Except String (List InterpretedSegment) :=
-  pht.mapM $ λphte ↦ ProgramHeaderTableEntry.toSegment? phte bytes
+  : Except String (List (α × InterpretedSegment)) :=
+  pht.mapM $ λphte ↦ do
+    let seg ← ProgramHeaderTableEntry.toSegment? phte bytes
+    return (phte,seg)

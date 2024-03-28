@@ -1,5 +1,6 @@
 import Cli
 import ELFSage.Util.Cli
+import ELFSage.Types.File
 import ELFSage.Types.ELFHeader
 import ELFSage.Types.ProgramHeaderTable
 import ELFSage.Constants.SectionHeaderTable
@@ -33,13 +34,13 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
-def printProgramHeaders (eh : RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.e_phnum eh] do
+def printProgramHeaders (ef : RawELFFile) := do
+  let headers := ef.getRawProgramHeaderTableEntries
+  let mut idx := 0
+  for header in headers do
     IO.println s!"\nProgram Header {idx}\n"
-    let offset := ELFHeader.e_phoff eh + (idx * ELFHeader.e_phentsize eh)
-    match mkRawProgramHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) offset with
-    | .error warn => IO.println warn
-    | .ok programHeader => IO.println $ repr programHeader
+    IO.println $ repr header.fst
+    idx := idx + 1
 
 -- TODO: sectionNameByOffset and symbolNameByLinkAndOffset should be unified and
 -- put under Types.ELFFile. Should perhaps signify that the symbol name recovery
@@ -80,17 +81,14 @@ def symbolNameByLinkAndOffset
       (by omega)
     pure $ stringtable.stringAt offset
 
-def printSectionHeaders (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.e_shnum eh] do
-    IO.print s!"\nSection Header {idx}: "
-    let offset := ELFHeader.e_shoff eh + (idx * ELFHeader.e_shentsize eh)
-    match mkRawSectionHeaderTableEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) offset with
-    | .error warn => IO.println warn
-    | .ok sh => 
-      match sectionNameByOffset eh bytes (SectionHeaderTableEntry.sh_name sh) with
-      | .ok name => IO.print s!"{name}\n"
-      | .error warn => IO.print s!"??? - {warn}¬"
-      IO.println $ repr sh
+def printSectionHeaders (elffile : RawELFFile) := do
+  let headers := elffile.getRawSectionHeaderTableEntries
+  let mut idx := 0
+  for header in headers do
+    let name := match header.snd.section_name_as_string with | .some s => s | _ => "no name"
+    IO.println s!"\nSection Header {idx} -- {name} \n"
+    IO.println $ repr header.fst
+    idx := idx + 1
 
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection (eh: RawELFHeader) (bytes : ByteArray) (sh: RawSectionHeaderTableEntry) :=
@@ -163,17 +161,18 @@ def printHexForSectionIdx (elfheader : RawELFHeader) (bytes : ByteArray) (idx : 
       (SectionHeaderTableEntry.sh_offset sh + SectionHeaderTableEntry.sh_size sh)
     dumpBytesAsHex targetSection
 
-def printDynamics (eh: RawELFHeader) (bytes : ByteArray) :=
-  for idx in [:ELFHeader.e_shnum eh] do
-    match getSectionByIndex eh bytes idx with
-    | .error _ => pure ()
-    | .ok sh =>
-    if SectionHeaderTableEntry.sh_type sh != ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC
-    then pure ()
-    else for idx in [:SectionHeaderTableEntry.sh_size sh / SectionHeaderTableEntry.sh_entsize sh] do
+def printDynamics (elffile : RawELFFile) :=
+  let dynamics := elffile.getRawSectionHeaderTableEntries.filter $ λsec ↦
+    SectionHeaderTableEntry.sh_type sec.fst == ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC
+  for dynamic in dynamics do
+    for idx in [:SectionHeaderTableEntry.sh_size dynamic.fst / SectionHeaderTableEntry.sh_entsize dynamic.fst] do
     IO.print s!"Dynamic Entry {idx}: "
-    let offset := SectionHeaderTableEntry.sh_offset sh + (idx * SectionHeaderTableEntry.sh_entsize sh)
-    match mkRawDynamicEntry? bytes (ELFHeader.is64Bit eh) (ELFHeader.isBigendian eh) offset with
+    let offset := idx * SectionHeaderTableEntry.sh_entsize dynamic.fst
+    match mkRawDynamicEntry? 
+      dynamic.snd.section_body
+      (ELFHeader.is64Bit elffile.getRawELFHeader) 
+      (ELFHeader.isBigendian elffile.getRawELFHeader) 
+      offset with
     | .error e => IO.println s!"warning: {e}"
     | .ok dynamicEnt => IO.println $ repr dynamicEnt
 
@@ -251,22 +250,24 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   let targetBinary := (p.positionalArg! "targetBinary").as! System.FilePath
   let bytes ← IO.FS.readBinFile targetBinary
 
-  match mkRawELFHeader? bytes with
+  match mkRawELFFile? bytes with
   | .error warn => IO.println warn *> return 1
-  | .ok elfheader => do
+  | .ok elffile => do
+
+  let elfheader := elffile.getRawELFHeader
 
   for flag in p.flags do
     match flag.flag.longName with
     | "file-header" => IO.println $ repr elfheader
     | "headers" => do
       IO.println $ repr elfheader
-      printProgramHeaders elfheader bytes
-      printSectionHeaders elfheader bytes
-    | "program-headers" => printProgramHeaders elfheader bytes
-    | "segments" => printProgramHeaders elfheader bytes
-    | "section-headers" => printSectionHeaders elfheader bytes
-    | "sections" => printSectionHeaders elfheader bytes
-    | "dynamic" => printDynamics elfheader bytes
+      printProgramHeaders elffile
+      printSectionHeaders elffile
+    | "program-headers" => printProgramHeaders elffile
+    | "segments" => printProgramHeaders elffile
+    | "section-headers" => printSectionHeaders elffile
+    | "sections" => printSectionHeaders elffile
+    | "dynamic" => printDynamics elffile
     | "dyn-syms" => 
       let type := ELFSectionHeaderTableEntry.Type.SHT_DYNSYM;
       printSymbolsForSectionType elfheader bytes type

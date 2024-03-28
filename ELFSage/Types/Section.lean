@@ -35,10 +35,12 @@ def SectionHeaderTableEntry.toSection?
   (bytes : ByteArray)
   (name : Option String)
   : Except String InterpretedSection :=
-  if bytes.size < (sh_offset shte) + (sh_size shte)
+  let hasBits := sh_type shte != ELFSectionHeaderTableEntry.Type.SHT_NOBITS
+  if bytes.size < (sh_offset shte) + (sh_size shte) ∧ hasBits
   then .error $
-    s! "A section specified in the section header table at offset {sh_offset shte}, " ++
-    s! "with size {sh_size shte}, runs off the end of the binary."
+    s! "{match name with | some n => n | _ => "A section"} specified in the " ++
+    s! "section header table at offset {sh_offset shte}, with size {sh_size shte}" ++
+    s! "runs off the end of the binary."
   else .ok {
     section_name    := sh_name shte
     section_type    := sh_type shte
@@ -50,7 +52,9 @@ def SectionHeaderTableEntry.toSection?
     section_info    := sh_info shte
     section_align   := sh_addralign shte
     section_entsize := sh_entsize shte
-    section_body    := bytes.extract (sh_offset shte) (sh_offset shte + sh_size shte)
+    section_body    := if hasBits
+      then bytes.extract (sh_offset shte) (sh_offset shte + sh_size shte)
+      else ByteArray.empty
     section_name_as_string := name
   }
 
@@ -71,12 +75,15 @@ def getInterpretedSections
   [SectionHeaderTableEntry α] (sht : List α) 
   [ELFHeader β] (eh : β)
   (bytes : ByteArray)
-  : Except String (List InterpretedSection) := do
+  : Except String (List (α × InterpretedSection)) := do
   let shstrndx := ELFHeader.e_shstrndx eh
   let section_names ← getSectionNames shstrndx sht bytes
   sht.mapM $ λshte ↦ 
     if SectionHeaderTableEntry.sh_name shte == 0 
-    then SectionHeaderTableEntry.toSection? shte bytes .none
+    then do
+      let sec ← SectionHeaderTableEntry.toSection? shte bytes .none
+      return (shte, sec)
     else do
       let name := section_names.stringAt $ SectionHeaderTableEntry.sh_name shte
-      SectionHeaderTableEntry.toSection? shte bytes name
+      let sec ← SectionHeaderTableEntry.toSection? shte bytes name
+      return (shte, sec)

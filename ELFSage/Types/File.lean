@@ -46,28 +46,23 @@ def getBitsAndBobs
         then toGaps (h₂ :: t)
         else toGaps (h₁ :: t)
 
--- NOTE: this structure has some fairly arbitrary features. linksem for
--- example wants two lists, of program headers and of interpreted segments,
--- which are of the same length as an invariant. It seems at least equally
--- reasonable to have a single field `interpreted_segments` of type
--- ProgramHeaderEntry × InterpretedSegment.
+-- NOTE: this diverges from the LinkSem implementation by using
+-- `interpreted_segments` of type ProgramHeaderEntry × InterpretedSegment (and
+-- similarly for sections) rather than having separate fields and asking
+-- that they have the same length as an invariant.
 
 structure ELF32File where
   /-- The ELF Header -/
   file_header           : ELF32Header
   /-- The Program Header Entries -/
-  program_header_table  : List ELF32ProgramHeaderTableEntry
-  /-- The Section Header Entries -/
-  section_header_table  : List ELF32SectionHeaderTableEntry
-  /-- The Segments of the file -/
-  interpreted_segments  : List InterpretedSegment
+  interpreted_segments  : List (ELF32ProgramHeaderTableEntry × InterpretedSegment)
   /-- The Sections of the file -/
-  interpreted_sections  : List InterpretedSection
+  interpreted_sections  : List (ELF32SectionHeaderTableEntry × InterpretedSection)
   /-- Bits and Bobs: binary contents not covered by any section or segment -/
   bits_and_bobs         : List (Nat × ByteArray)
   deriving Repr
 
-def mkELF32File (bytes : ByteArray) : Except String ELF32File := do
+def mkELF32File? (bytes : ByteArray) : Except String ELF32File := do
   let file_header ← mkELF32Header? bytes
 
   let program_header_table ← file_header.mkELF32ProgramHeaderTable? bytes
@@ -82,8 +77,6 @@ def mkELF32File (bytes : ByteArray) : Except String ELF32File := do
   
   .ok {
     file_header           
-    program_header_table 
-    section_header_table
     interpreted_segments
     interpreted_sections
     bits_and_bobs
@@ -92,19 +85,15 @@ def mkELF32File (bytes : ByteArray) : Except String ELF32File := do
 structure ELF64File where
   /-- The ELF Header -/
   file_header           : ELF64Header
-  /-- The Program Header Entries -/
-  program_header_table  : List ELF64ProgramHeaderTableEntry
-  /-- The Section Header Entries -/
-  section_header_table  : List ELF64SectionHeaderTableEntry
   /-- The Segments of the file -/
-  interpreted_segments  : List InterpretedSegment
+  interpreted_segments  : List (ELF64ProgramHeaderTableEntry × InterpretedSegment)
   /-- The Sections of the file -/
-  interpreted_sections  : List InterpretedSection
+  interpreted_sections  : List (ELF64SectionHeaderTableEntry × InterpretedSection)
   /-- Bits and Bobs: binary contents not covered by any section or segment -/
   bits_and_bobs         : List (Nat × ByteArray)
   deriving Repr
 
-def mkELF64File (bytes : ByteArray) : Except String ELF64File := do
+def mkELF64File? (bytes : ByteArray) : Except String ELF64File := do
   let file_header ← mkELF64Header? bytes
 
   let program_header_table ← file_header.mkELF64ProgramHeaderTable? bytes
@@ -119,10 +108,30 @@ def mkELF64File (bytes : ByteArray) : Except String ELF64File := do
   
   .ok {
     file_header           
-    program_header_table 
-    section_header_table
     interpreted_segments
     interpreted_sections
     bits_and_bobs
   }
 
+inductive RawELFFile where
+  | elf32 : ELF32File → RawELFFile
+  | elf64 : ELF64File → RawELFFile
+
+def mkRawELFFile? (bytes : ByteArray) : Except String RawELFFile := 
+  if h : bytes.size < 5 then throw "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."
+  else match bytes.get ⟨0x4, by omega⟩ with
+  | 1 => .elf32 <$> mkELF32File? bytes
+  | 2 => .elf64 <$> mkELF64File? bytes
+  | _ => throw "Can't determine if this is a 32 of 64 bit binary (byte 0x5 of the elf header is bad)"
+
+def RawELFFile.getRawSectionHeaderTableEntries : RawELFFile → List (RawSectionHeaderTableEntry × InterpretedSection)
+  | .elf32 elffile => elffile.interpreted_sections.map (λshte => (.elf32 shte.fst, shte.snd))
+  | .elf64 elffile => elffile.interpreted_sections.map (λshte => (.elf64 shte.fst, shte.snd))
+
+def RawELFFile.getRawProgramHeaderTableEntries : RawELFFile → List (RawProgramHeaderTableEntry × InterpretedSegment)
+  | .elf32 elffile => elffile.interpreted_segments.map (λshte => (.elf32 shte.fst, shte.snd))
+  | .elf64 elffile => elffile.interpreted_segments.map (λshte => (.elf64 shte.fst, shte.snd))
+
+def RawELFFile.getRawELFHeader : RawELFFile → RawELFHeader
+  | .elf32 elffile => .elf32 elffile.file_header
+  | .elf64 elffile => .elf64 elffile.file_header
