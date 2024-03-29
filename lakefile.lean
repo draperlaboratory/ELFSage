@@ -13,3 +13,6 @@ lean_lib «ELFSage» where
 @[default_target]
 lean_exe «elfsage» where
   root := `Main
+
+lean_exe test where
+  root := `Test

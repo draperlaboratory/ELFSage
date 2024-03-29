@@ -68,6 +68,11 @@ def printSectionHeaders (elffile : RawELFFile) := do
     IO.println $ repr header.fst
     idx := idx + 1
 
+def printHeaders (elffile : RawELFFile) := do
+  IO.println $ repr elffile.getRawELFHeader
+  printProgramHeaders elffile
+  printSectionHeaders elffile
+
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection 
   (elffile : RawELFFile) 
@@ -230,10 +235,7 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
   for flag in p.flags do
     match flag.flag.longName with
     | "file-header" => IO.println $ repr elfheader
-    | "headers" => do
-      IO.println $ repr elfheader
-      printProgramHeaders elffile
-      printSectionHeaders elffile
+    | "headers" => printHeaders elffile
     | "program-headers" => printProgramHeaders elffile
     | "segments" => printProgramHeaders elffile
     | "section-headers" => printSectionHeaders elffile
