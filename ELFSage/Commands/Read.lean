@@ -34,6 +34,9 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
+def printFileHeader (eh : RawELFHeader) := do
+  IO.println $ toString eh
+
 def printProgramHeaders (ef : RawELFFile) := do
   let headers := ef.getRawProgramHeaderTableEntries
   let mut idx := 0
@@ -63,7 +66,7 @@ def printSectionHeaders (elffile : RawELFFile) := do
     idx := idx + 1
 
 def printHeaders (elffile : RawELFFile) := do
-  IO.println $ repr elffile.getRawELFHeader
+  printFileHeader elffile.getRawELFHeader
   printProgramHeaders elffile
   printSectionHeaders elffile
 
@@ -240,7 +243,7 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
 
   for flag in p.flags do
     match flag.flag.longName with
-    | "file-header" => IO.println $ repr elfheader
+    | "file-header" => printFileHeader elfheader
     | "headers" => printHeaders elffile
     | "program-headers" => printProgramHeaders elffile
     | "segments" => printProgramHeaders elffile
