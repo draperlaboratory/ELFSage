@@ -1,5 +1,8 @@
 import Cli
 import ELFSage.Util.Cli
+import ELFSage.Util.Flags
+import ELFSage.Util.Hex
+import ELFSage.Util.List
 import ELFSage.Types.File
 import ELFSage.Types.ELFHeader
 import ELFSage.Types.ProgramHeaderTable
@@ -10,6 +13,9 @@ import ELFSage.Types.StringTable
 import ELFSage.Types.Dynamic
 import ELFSage.Types.Note
 import ELFSage.Types.Relocation
+
+open Hex
+open Flags
 
 def checkImplemented (p: Cli.Parsed) : Except String Unit := do
   let unimplemented :=
@@ -56,19 +62,72 @@ def symbolNameByLinkAndOffset
     let stringtable : ELFStringTable := ⟨sec.section_body⟩
     pure $ stringtable.stringAt offset
 
+private def getSectionHeaderType (n: UInt32) := match n with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0           => "SHT_NULL"         -- (0x0)
+  | 1           => "SHT_PROGBITS"     -- (0x1)
+  | 3           => "SHT_STRTAB"       -- (0x3)
+  | 4           => "SHT_RELA"         -- (0x4)
+  | 6           => "SHT_DYNAMIC"      -- (0x6)
+  | 7           => "SHT_NOTE"         -- (0x7)
+  | 8           => "SHT_NOBITS"       -- (0x8)
+  | 11          => "SHT_DYNSYM"       -- (0xB)
+  | 14          => "SHT_INIT_ARRAY"   -- (0xE)
+  | 15          => "SHT_FINI_ARRAY"   -- (0xF)
+  | 1879048182  => "SHT_GNU_HASH"     -- (0x6FFFFFF6)
+  | 1879048190  => "SHT_GNU_verneed"  -- (0x6FFFFFFE)
+  | 1879048191  => "SHT_GNU_versym"   -- (0x6FFFFFFF)
+  | _ => panic s!"Unrecognized section header type {n}"
+
+private def getSectionHeaderFlag (flagIndex: Nat) := match flagIndex with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0  => "SHF_WRITE"      -- (0x1)
+  | 1  => "SHF_ALLOC"      -- (0x2)
+  | 2  => "SHF_EXECINSTR"  -- (0x4)
+  | 4  => "SHF_MERGE"      -- (0x10)
+  | 5  => "SHF_STRINGS"    -- (0x20)
+  | _ => panic s!"Unrecognized section header flag {flagIndex}"
+
+private def sectionHeaderFlagsToString (flags: UInt64) (indent: String) : String :=
+  getFlagBits flags.toNat 64
+    |> .map (λ flag => s!"{indent}{getSectionHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
+    |> List.insertionSort (. < .) -- sort by flag name
+    |> String.join
+
 def printSectionHeaders (elffile : RawELFFile) := do
+  let mut out := "Sections [\n"
   let headers := elffile.getRawSectionHeaderTableEntries
   let mut idx := 0
   for ⟨phte, sec⟩ in headers do
-    let name := match sec.section_name_as_string with | .some s => s | _ => "no name"
-    IO.println s!"\nSection Header {idx} -- {name} \n"
-    IO.println $ repr phte
+    let name := match sec.section_name_as_string with | .some s => s | _ => ""
+    let nextHeader := match phte with
+    | .elf32 sh => toString $ repr sh
+    | .elf64 sh =>
+        "  Section {\n" ++
+      s!"    Index: {idx}\n" ++
+      s!"    Name: {name} ({sh.sh_name})\n" ++
+      s!"    Type: {getSectionHeaderType sh.sh_type} (0x{toHex sh.sh_type.toNat})\n" ++
+      s!"    Flags [ (0x{toHex sh.sh_flags.toNat})\n" ++
+      s!"{     sectionHeaderFlagsToString sh.sh_flags "      "}" ++
+        "    ]\n" ++
+      s!"    Address: 0x{toHex sh.sh_addr.toNat}\n" ++
+      s!"    Offset: 0x{toHex sh.sh_offset.toNat}\n" ++
+      s!"    Size: {sh.sh_size}\n" ++
+      s!"    Link: {sh.sh_link}\n" ++
+      s!"    Info: {sh.sh_info}\n" ++
+      s!"    AddressAlignment: {sh.sh_addralign}\n" ++
+      s!"    EntrySize: {sh.sh_entsize}\n" ++
+        "  }\n"
+    out := out ++ nextHeader
     idx := idx + 1
+
+  out := out ++ "]"
+  IO.println out
 
 def printHeaders (elffile : RawELFFile) := do
   printFileHeader elffile.getRawELFHeader
-  printProgramHeaders elffile
   printSectionHeaders elffile
+  printProgramHeaders elffile
 
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection
