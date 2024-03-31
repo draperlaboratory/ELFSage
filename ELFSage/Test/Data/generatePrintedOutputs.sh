@@ -9,7 +9,8 @@ mkdir PrintedHeaders
 
 for f in ./ELFFiles/*; do
   fname=$(basename -- "$f")
-  llvm-readobj --headers ./ELFFiles/$fname > PrintedHeaders/$fname
+  # llvm-readobj prepends 6 lines of file metadata before all outputs. Discard this metadata
+  llvm-readobj --headers ./ELFFiles/$fname | tail -n +7 > PrintedHeaders/$fname
 done
 
 popd &> /dev/null

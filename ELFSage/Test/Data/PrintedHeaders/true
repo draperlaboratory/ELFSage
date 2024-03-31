@@ -1,9 +1,3 @@
-
-File: ./ELFFiles/true
-Format: elf64-x86-64
-Arch: x86_64
-AddressSize: 64bit
-LoadName: <Not found>
 ElfHeader {
   Ident {
     Magic: (7F 45 4C 46)
