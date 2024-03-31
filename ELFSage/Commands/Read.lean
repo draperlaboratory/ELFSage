@@ -43,13 +43,57 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 def printFileHeader (eh : RawELFHeader) := do
   IO.println $ toString eh
 
-def printProgramHeaders (ef : RawELFFile) := do
-  let headers := ef.getRawProgramHeaderTableEntries
+private def getProgramHeaderType (n: UInt32) := match n with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 1           => "PT_LOAD"          -- (0x1)
+  | 2           => "PT_DYNAMIC"       -- (0x2)
+  | 3           => "PT_INTERP"        -- (0x3)
+  | 4           => "PT_NOTE"          -- (0x4)
+  | 6           => "PT_PHDR"          -- (0x6)
+  | 1685382480  => "PT_GNU_EH_FRAME"  -- (0x6474E550)
+  | 1685382481  => "PT_GNU_STACK"     -- (0x6474E551)
+  | 1685382482  => "PT_GNU_RELRO"     -- (0x6474E552)
+  | 1685382483  => "PT_GNU_PROPERTY"  -- (0x6474E553)
+  | _ => panic s!"Unrecognized program header type {n}"
+
+private def getProgramHeaderFlag (flagIndex: Nat) := match flagIndex with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0  => "PF_X"  -- (0x1)
+  | 1  => "PF_W"  -- (0x2)
+  | 2  => "PF_R"  -- (0x4)
+  | _ => panic s!"Unrecognized program header flag {flagIndex}"
+
+private def programHeaderFlagsToString (flags: UInt32) (indent: String) : String :=
+  getFlagBits flags.toNat 32
+    |> .map (λ flag => s!"{indent}{getProgramHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
+    |> List.insertionSort (. < .) -- sort by flag name
+    |> String.join
+
+def printProgramHeaders (elffile : RawELFFile) := do
+  let mut out := "ProgramHeaders [\n"
+  let headers := elffile.getRawProgramHeaderTableEntries
   let mut idx := 0
   for ⟨phte, _⟩ in headers do
-    IO.println s!"\nProgram Header {idx}\n"
-    IO.println $ repr phte
+    let nextHeader := match phte with
+    | .elf32 ph => toString $ repr ph
+    | .elf64 ph =>
+        "  ProgramHeader {\n" ++
+      s!"    Type: {getProgramHeaderType ph.p_type} (0x{toHex ph.p_type.toNat})\n" ++
+      s!"    Offset: 0x{toHex ph.p_offset.toNat}\n" ++
+      s!"    VirtualAddress: 0x{toHex ph.p_vaddr.toNat}\n" ++
+      s!"    PhysicalAddress: 0x{toHex ph.p_paddr.toNat}\n" ++
+      s!"    FileSize: {ph.p_filesz}\n" ++
+      s!"    MemSize: {ph.p_memsz}\n" ++
+      s!"    Flags [ (0x{toHex ph.p_flags.toNat})\n" ++
+      s!"{     programHeaderFlagsToString ph.p_flags "      "}" ++
+        "    ]\n" ++
+      s!"    Alignment: {ph.p_align}\n" ++
+        "  }\n"
+    out := out ++ nextHeader
     idx := idx + 1
+
+  out := out ++ "]"
+  IO.println out
 
 def symbolNameByLinkAndOffset
   (elffile : RawELFFile)
