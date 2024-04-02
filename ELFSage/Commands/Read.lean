@@ -43,7 +43,7 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 def printFileHeader (eh : RawELFHeader) := do
   IO.println $ toString eh
 
-private def getProgramHeaderType (n: UInt32) := match n with
+private def getProgramHeaderType (n: Nat) := match n with
   -- TODO: Finish populating this list of magic numbers, it is incomplete.
   | 1           => "PT_LOAD"          -- (0x1)
   | 2           => "PT_DYNAMIC"       -- (0x2)
@@ -63,8 +63,8 @@ private def getProgramHeaderFlag (flagIndex: Nat) := match flagIndex with
   | 2  => "PF_R"  -- (0x4)
   | _ => panic s!"Unrecognized program header flag {flagIndex}"
 
-private def programHeaderFlagsToString (flags: UInt32) (indent: String) : String :=
-  getFlagBits flags.toNat 32
+private def programHeaderFlagsToString (flags: Nat) (indent: String) : String :=
+  getFlagBits flags 32
     |> .map (λ flag => s!"{indent}{getProgramHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
     |> List.insertionSort (. < .) -- sort by flag name
     |> String.join
@@ -74,20 +74,18 @@ def printProgramHeaders (elffile : RawELFFile) := do
   let headers := elffile.getRawProgramHeaderTableEntries
   let mut idx := 0
   for ⟨phte, _⟩ in headers do
-    let nextHeader := match phte with
-    | .elf32 ph => toString $ repr ph
-    | .elf64 ph =>
+    let nextHeader :=
         "  ProgramHeader {\n" ++
-      s!"    Type: {getProgramHeaderType ph.p_type} (0x{toHex ph.p_type.toNat})\n" ++
-      s!"    Offset: 0x{toHex ph.p_offset.toNat}\n" ++
-      s!"    VirtualAddress: 0x{toHex ph.p_vaddr.toNat}\n" ++
-      s!"    PhysicalAddress: 0x{toHex ph.p_paddr.toNat}\n" ++
-      s!"    FileSize: {ph.p_filesz}\n" ++
-      s!"    MemSize: {ph.p_memsz}\n" ++
-      s!"    Flags [ (0x{toHex ph.p_flags.toNat})\n" ++
-      s!"{     programHeaderFlagsToString ph.p_flags "      "}" ++
+      s!"    Type: {getProgramHeaderType $ ProgramHeaderTableEntry.p_type phte} (0x{toHex $ ProgramHeaderTableEntry.p_type phte})\n" ++
+      s!"    Offset: 0x{toHex $ ProgramHeaderTableEntry.p_offset phte}\n" ++
+      s!"    VirtualAddress: 0x{toHex $ ProgramHeaderTableEntry.p_vaddr phte}\n" ++
+      s!"    PhysicalAddress: 0x{toHex $ ProgramHeaderTableEntry.p_paddr phte}\n" ++
+      s!"    FileSize: {ProgramHeaderTableEntry.p_filesz phte}\n" ++
+      s!"    MemSize: {ProgramHeaderTableEntry.p_memsz phte}\n" ++
+      s!"    Flags [ (0x{toHex $ ProgramHeaderTableEntry.p_flags phte})\n" ++
+      s!"{     programHeaderFlagsToString (ProgramHeaderTableEntry.p_flags phte) "      "}" ++
         "    ]\n" ++
-      s!"    Alignment: {ph.p_align}\n" ++
+      s!"    Alignment: {ProgramHeaderTableEntry.p_align phte}\n" ++
         "  }\n"
     out := out ++ nextHeader
     idx := idx + 1
@@ -106,7 +104,7 @@ def symbolNameByLinkAndOffset
     let stringtable : ELFStringTable := ⟨sec.section_body⟩
     pure $ stringtable.stringAt offset
 
-private def getSectionHeaderType (n: UInt32) := match n with
+private def getSectionHeaderType (n: Nat) := match n with
   -- TODO: Finish populating this list of magic numbers, it is incomplete.
   | 0           => "SHT_NULL"         -- (0x0)
   | 1           => "SHT_PROGBITS"     -- (0x1)
@@ -132,8 +130,8 @@ private def getSectionHeaderFlag (flagIndex: Nat) := match flagIndex with
   | 5  => "SHF_STRINGS"    -- (0x20)
   | _ => panic s!"Unrecognized section header flag {flagIndex}"
 
-private def sectionHeaderFlagsToString (flags: UInt64) (indent: String) : String :=
-  getFlagBits flags.toNat 64
+private def sectionHeaderFlagsToString (flags: Nat) (indent: String) : String :=
+  getFlagBits flags 64
     |> .map (λ flag => s!"{indent}{getSectionHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
     |> List.insertionSort (. < .) -- sort by flag name
     |> String.join
@@ -144,23 +142,21 @@ def printSectionHeaders (elffile : RawELFFile) := do
   let mut idx := 0
   for ⟨phte, sec⟩ in headers do
     let name := match sec.section_name_as_string with | .some s => s | _ => ""
-    let nextHeader := match phte with
-    | .elf32 sh => toString $ repr sh
-    | .elf64 sh =>
+    let nextHeader :=
         "  Section {\n" ++
       s!"    Index: {idx}\n" ++
-      s!"    Name: {name} ({sh.sh_name})\n" ++
-      s!"    Type: {getSectionHeaderType sh.sh_type} (0x{toHex sh.sh_type.toNat})\n" ++
-      s!"    Flags [ (0x{toHex sh.sh_flags.toNat})\n" ++
-      s!"{     sectionHeaderFlagsToString sh.sh_flags "      "}" ++
+      s!"    Name: {name} ({SectionHeaderTableEntry.sh_name phte})\n" ++
+      s!"    Type: {getSectionHeaderType $ SectionHeaderTableEntry.sh_type phte} (0x{toHex $ SectionHeaderTableEntry.sh_type phte})\n" ++
+      s!"    Flags [ (0x{toHex $ SectionHeaderTableEntry.sh_flags phte})\n" ++
+      s!"{     sectionHeaderFlagsToString (SectionHeaderTableEntry.sh_flags phte) "      "}" ++
         "    ]\n" ++
-      s!"    Address: 0x{toHex sh.sh_addr.toNat}\n" ++
-      s!"    Offset: 0x{toHex sh.sh_offset.toNat}\n" ++
-      s!"    Size: {sh.sh_size}\n" ++
-      s!"    Link: {sh.sh_link}\n" ++
-      s!"    Info: {sh.sh_info}\n" ++
-      s!"    AddressAlignment: {sh.sh_addralign}\n" ++
-      s!"    EntrySize: {sh.sh_entsize}\n" ++
+      s!"    Address: 0x{toHex $ SectionHeaderTableEntry.sh_addr phte}\n" ++
+      s!"    Offset: 0x{toHex $ SectionHeaderTableEntry.sh_offset phte}\n" ++
+      s!"    Size: {SectionHeaderTableEntry.sh_size phte}\n" ++
+      s!"    Link: {SectionHeaderTableEntry.sh_link phte}\n" ++
+      s!"    Info: {SectionHeaderTableEntry.sh_info phte}\n" ++
+      s!"    AddressAlignment: {SectionHeaderTableEntry.sh_addralign phte}\n" ++
+      s!"    EntrySize: {SectionHeaderTableEntry.sh_entsize phte}\n" ++
         "  }\n"
     out := out ++ nextHeader
     idx := idx + 1
