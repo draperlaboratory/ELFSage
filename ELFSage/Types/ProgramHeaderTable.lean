@@ -49,13 +49,13 @@ instance : ProgramHeaderTableEntry ELF64ProgramHeaderTableEntry where
   p_memsz ph  := ph.p_memsz.toNat
   p_align ph  := ph.p_align.toNat
 
-def mkELF64ProgramHeaderTableEntry 
+def mkELF64ProgramHeaderTableEntry
   (isBigEndian : Bool)
   (bs : ByteArray)
   (offset : Nat)
   (h : bs.size - offset ≥ 0x38) :
   ELF64ProgramHeaderTableEntry := {
-    p_type   := getUInt32from (offset + 0x00) (by omega), 
+    p_type   := getUInt32from (offset + 0x00) (by omega),
     p_flags  := getUInt32from (offset + 0x04) (by omega),
     p_offset := getUInt64from (offset + 0x08) (by omega),
     p_vaddr  := getUInt64from (offset + 0x10) (by omega),
@@ -71,7 +71,7 @@ def mkELF64ProgramHeaderTableEntry
 def mkELF64ProgramHeaderTableEntry?
   (isBigEndian : Bool)
   (bs : ByteArray)
-  (offset : Nat) 
+  (offset : Nat)
   : Except String ELF64ProgramHeaderTableEntry :=
   if h : bs.size - offset ≥ 0x38
   then .ok $ mkELF64ProgramHeaderTableEntry isBigEndian bs offset h
@@ -81,9 +81,9 @@ def mkELF64ProgramHeaderTableEntry?
 def ELF64Header.mkELF64ProgramHeaderTable?
   (eh : ELF64Header)
   (bytes : ByteArray)
-  : Except String (List ELF64ProgramHeaderTableEntry):= 
+  : Except String (List ELF64ProgramHeaderTableEntry):=
   let isBigendian := ELFHeader.isBigendian eh
-  List.mapM 
+  List.mapM
     (λoffset ↦ mkELF64ProgramHeaderTableEntry? isBigendian bytes offset)
     (ELFHeader.getProgramHeaderOffsets eh)
 
@@ -116,13 +116,13 @@ instance : ProgramHeaderTableEntry ELF32ProgramHeaderTableEntry where
   p_memsz ph  := ph.p_memsz.toNat
   p_align ph  := ph.p_align.toNat
 
-def mkELF32ProgramHeaderTableEntry 
+def mkELF32ProgramHeaderTableEntry
   (isBigEndian : Bool)
   (bs : ByteArray)
   (offset : Nat)
   (h : bs.size - offset ≥ 0x20) :
   ELF32ProgramHeaderTableEntry := {
-    p_type   := getUInt32from (offset + 0x00) (by omega), 
+    p_type   := getUInt32from (offset + 0x00) (by omega),
     p_offset := getUInt32from (offset + 0x04) (by omega),
     p_vaddr  := getUInt32from (offset + 0x08) (by omega),
     p_paddr  := getUInt32from (offset + 0x0C) (by omega),
@@ -137,9 +137,9 @@ def mkELF32ProgramHeaderTableEntry
 def mkELF32ProgramHeaderTableEntry?
   (isBigEndian : Bool)
   (bs : ByteArray)
-  (offset : Nat) 
+  (offset : Nat)
   : Except String ELF32ProgramHeaderTableEntry :=
-  if h : bs.size - offset ≥ 0x20 
+  if h : bs.size - offset ≥ 0x20
   then .ok $ mkELF32ProgramHeaderTableEntry isBigEndian bs offset h
   else .error $ "Program header table entry offset {offset} doesn't leave enough space for the entry, " ++
                 "which requires 0x20 bytes."
@@ -147,10 +147,10 @@ def mkELF32ProgramHeaderTableEntry?
 def ELF32Header.mkELF32ProgramHeaderTable?
   (eh : ELF32Header)
   (bytes : ByteArray)
-  : Except String (List ELF32ProgramHeaderTableEntry):= 
+  : Except String (List ELF32ProgramHeaderTableEntry):=
   let isBigendian := ELFHeader.isBigendian eh
-  List.mapM 
-    (λoffset ↦ mkELF32ProgramHeaderTableEntry? isBigendian bytes offset) 
+  List.mapM
+    (λoffset ↦ mkELF32ProgramHeaderTableEntry? isBigendian bytes offset)
     (ELFHeader.getProgramHeaderOffsets eh)
 
 inductive RawProgramHeaderTableEntry where
@@ -159,21 +159,21 @@ inductive RawProgramHeaderTableEntry where
   deriving Repr
 
 instance : ProgramHeaderTableEntry RawProgramHeaderTableEntry where
-  p_type ph   := match ph with | .elf32 ph => ph.p_type.toNat   | .elf64 ph => ph.p_type.toNat   
-  p_flags ph  := match ph with | .elf32 ph => ph.p_flags.toNat  | .elf64 ph => ph.p_flags.toNat  
-  p_offset ph := match ph with | .elf32 ph => ph.p_offset.toNat | .elf64 ph => ph.p_offset.toNat 
-  p_vaddr ph  := match ph with | .elf32 ph => ph.p_vaddr.toNat  | .elf64 ph => ph.p_vaddr.toNat  
-  p_paddr ph  := match ph with | .elf32 ph => ph.p_paddr.toNat  | .elf64 ph => ph.p_paddr.toNat  
-  p_filesz ph := match ph with | .elf32 ph => ph.p_filesz.toNat | .elf64 ph => ph.p_filesz.toNat 
-  p_memsz ph  := match ph with | .elf32 ph => ph.p_memsz.toNat  | .elf64 ph => ph.p_memsz.toNat  
-  p_align ph  := match ph with | .elf32 ph => ph.p_align.toNat  | .elf64 ph => ph.p_align.toNat  
+  p_type ph   := match ph with | .elf32 ph => ph.p_type.toNat   | .elf64 ph => ph.p_type.toNat
+  p_flags ph  := match ph with | .elf32 ph => ph.p_flags.toNat  | .elf64 ph => ph.p_flags.toNat
+  p_offset ph := match ph with | .elf32 ph => ph.p_offset.toNat | .elf64 ph => ph.p_offset.toNat
+  p_vaddr ph  := match ph with | .elf32 ph => ph.p_vaddr.toNat  | .elf64 ph => ph.p_vaddr.toNat
+  p_paddr ph  := match ph with | .elf32 ph => ph.p_paddr.toNat  | .elf64 ph => ph.p_paddr.toNat
+  p_filesz ph := match ph with | .elf32 ph => ph.p_filesz.toNat | .elf64 ph => ph.p_filesz.toNat
+  p_memsz ph  := match ph with | .elf32 ph => ph.p_memsz.toNat  | .elf64 ph => ph.p_memsz.toNat
+  p_align ph  := match ph with | .elf32 ph => ph.p_align.toNat  | .elf64 ph => ph.p_align.toNat
 
 def mkRawProgramHeaderTableEntry?
   (bs : ByteArray)
   (is64Bit : Bool)
   (isBigendian : Bool)
   (offset : Nat)
-  : Except String RawProgramHeaderTableEntry := 
+  : Except String RawProgramHeaderTableEntry :=
   match is64Bit with
   | true  => .elf64 <$> mkELF64ProgramHeaderTableEntry? isBigendian bs offset
   | false => .elf32 <$> mkELF32ProgramHeaderTableEntry? isBigendian bs offset
@@ -182,15 +182,15 @@ inductive RawProgramHeaderTable where
   | elf32 : List ELF32ProgramHeaderTableEntry → RawProgramHeaderTable
   | elf64 : List ELF64ProgramHeaderTableEntry → RawProgramHeaderTable
 
-def RawProgramHeaderTable.length : RawProgramHeaderTable → Nat 
+def RawProgramHeaderTable.length : RawProgramHeaderTable → Nat
   | elf32 pht => pht.length
   | elf64 pht => pht.length
 
-def ELFHeader.mkRawProgramHeaderTable? 
+def ELFHeader.mkRawProgramHeaderTable?
   [ELFHeader α]
   (eh : α)
   (bytes : ByteArray)
-  : Except String RawProgramHeaderTable := 
+  : Except String RawProgramHeaderTable :=
   let shoffsets := (List.range (ELFHeader.e_phnum eh)).map λidx ↦ ELFHeader.e_phoff eh + ELFHeader.e_phentsize eh * idx
   let isBigendian := ELFHeader.isBigendian eh
   let is64Bit := ELFHeader.is64Bit eh

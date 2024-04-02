@@ -149,7 +149,7 @@ instance : ToString ELF64Header where toString eh :=
   val
 
 /-- A simple parser for extracting an ELF64 header, just a test, no validation -/
-def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := { 
+def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := {
   e_ident     := NByteArray.extract bs 0x10 (by omega),
   e_type      := getUInt16from 0x10 (by omega),
   e_machine   := getUInt16from 0x12 (by omega),
@@ -224,7 +224,7 @@ instance : ELFHeader ELF32Header where
 instance : ToString ELF32Header where toString eh := toString $ repr eh
 
 /-- A simple parser for extracting an ELF32 header, just a test, no validation -/
-def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := { 
+def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := {
   e_ident     := NByteArray.extract bs 0x10 (by omega),
   e_type      := getUInt16from 0x10 (by omega),
   e_machine   := getUInt16from 0x12 (by omega),
