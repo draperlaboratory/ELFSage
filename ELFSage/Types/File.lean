@@ -181,7 +181,7 @@ private def getProgramHeaderFlag (flagIndex: Nat) := match flagIndex with
 private def programHeaderFlagsToString (flags: Nat) (indent: String) : String :=
   getFlagBits flags 32
     |> .map (λ flag => s!"{indent}{getProgramHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
-    |> List.insertionSort (. < .) -- sort by flag name
+    |> (λ a => .insertionSort a (. < .)) -- sort by flag name
     |> String.join
 
 def RawELFFile.programHeadersToString (elffile : RawELFFile) := Id.run do
@@ -237,7 +237,7 @@ private def getSectionHeaderFlag (flagIndex: Nat) := match flagIndex with
 private def sectionHeaderFlagsToString (flags: Nat) (indent: String) : String :=
   getFlagBits flags 64
     |> .map (λ flag => s!"{indent}{getSectionHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
-    |> List.insertionSort (. < .) -- sort by flag name
+    |> (λ a => .insertionSort a (. < .)) -- sort by flag name
     |> String.join
 
 def RawELFFile.sectionHeadersToString (elffile : RawELFFile) := Id.run do
