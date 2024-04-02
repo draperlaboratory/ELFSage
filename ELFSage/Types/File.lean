@@ -267,3 +267,8 @@ def RawELFFile.sectionHeadersToString (elffile : RawELFFile) := Id.run do
 
   out := out ++ "]"
   return out
+
+def RawELFFile.headersToString (elffile : RawELFFile) :=
+  toString elffile.getRawELFHeader ++ "\n" ++
+  RawELFFile.sectionHeadersToString elffile ++ "\n" ++
+  RawELFFile.programHeadersToString elffile

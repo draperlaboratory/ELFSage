@@ -34,12 +34,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
-def printFileHeader (eh : RawELFHeader) := do
-  IO.println $ toString eh
-
-def printProgramHeaders (elffile : RawELFFile) := do
-  IO.println $ RawELFFile.programHeadersToString elffile
-
 def symbolNameByLinkAndOffset
   (elffile : RawELFFile)
   (linkIdx: Nat)
@@ -50,14 +44,6 @@ def symbolNameByLinkAndOffset
   | .some ⟨_, sec⟩ =>
     let stringtable : ELFStringTable := ⟨sec.section_body⟩
     pure $ stringtable.stringAt offset
-
-def printSectionHeaders (elffile : RawELFFile) := do
-  IO.println $ RawELFFile.sectionHeadersToString elffile
-
-def printHeaders (elffile : RawELFFile) := do
-  printFileHeader elffile.getRawELFHeader
-  printSectionHeaders elffile
-  printProgramHeaders elffile
 
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection
@@ -210,6 +196,18 @@ def printRelocationSections (elffile: RawELFFile) :=
       | .some name => IO.print s!"Relocations from {name}\n"
       | .none => IO.print s!"Relocations from unnamed section\n"
       printRelocationA elffile shte sec
+
+private def printFileHeader (eh : RawELFHeader) := do
+  IO.println $ toString eh
+
+private def printSectionHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.sectionHeadersToString elffile
+
+private def printProgramHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.programHeadersToString elffile
+
+private def printHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.headersToString elffile
 
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
 

@@ -1,4 +1,4 @@
-import ELFSage.Commands.Read
+import ELFSage.Types.File
 
 private def DATA_DIR_RELATIVE: System.FilePath := System.mkFilePath [ "Data" ]
 private def ELF_FILES_DIR_RELATIVE: System.FilePath := DATA_DIR_RELATIVE.join $ System.mkFilePath [ "ELFFiles" ]
@@ -9,29 +9,28 @@ private def EXAMPLE_TEST_NAME: System.FilePath := System.mkFilePath [ "true" ]
 
 def runSingleTest (elfFile: System.FilePath) (expectedOutputFile: System.FilePath)
     (testOutputFile: System.FilePath): IO UInt32 := do
+  -- TODO: Clean this up. This file is being written so that, if it did not previously exist,
+  -- deleting it will not error.
+  IO.FS.writeFile testOutputFile ""
+
+  -- delete the existing test output file if it exists to avoid debugging confusion
+  IO.FS.removeFile testOutputFile
+
   let bytes ← IO.FS.readBinFile elfFile
 
   match mkRawELFFile? bytes with
   | .error warn => IO.println warn *> return 1
   | .ok elffile => do
 
-  -- TODO: send std out directly into the file instead of using a string buffer
-  --   OR: clean up printHeaders to be a pure function
-  let bOut ← IO.mkRef { : IO.FS.Stream.Buffer }
-  let _ ← IO.withStdout (IO.FS.Stream.ofBuffer bOut) <|
-    printHeaders elffile
-  let bOut ← liftM (m := BaseIO) bOut.get
-  let out := String.fromUTF8Unchecked bOut.data
-  IO.FS.writeFile testOutputFile out
+  let expectedString ← IO.FS.readFile expectedOutputFile
+  let actualString := RawELFFile.headersToString elffile ++ "\n"
 
-  let expectedOutputBytes ← IO.FS.readBinFile expectedOutputFile
-  let actualOutputBytes ← IO.FS.readBinFile testOutputFile
-
-  if expectedOutputBytes.data == actualOutputBytes.data then
+  if expectedString == actualString then
     IO.println "PASS"
     return 0
   else
     IO.println "FAIL"
+    IO.FS.writeFile testOutputFile actualString
     IO.println $ s!"Expected {testOutputFile} to equal {expectedOutputFile}."
     return 1
 
