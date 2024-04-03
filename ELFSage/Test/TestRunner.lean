@@ -9,12 +9,9 @@ private def EXAMPLE_TEST_NAME: System.FilePath := System.mkFilePath [ "true" ]
 
 def runSingleTest (elfFile: System.FilePath) (expectedOutputFile: System.FilePath)
     (testOutputFile: System.FilePath): IO UInt32 := do
-  -- TODO: Clean this up. This file is being written so that, if it did not previously exist,
-  -- deleting it will not error.
-  IO.FS.writeFile testOutputFile ""
 
   -- delete the existing test output file if it exists to avoid debugging confusion
-  IO.FS.removeFile testOutputFile
+  IO.FS.removeFile testOutputFile <|> pure ()
 
   let bytes ← IO.FS.readBinFile elfFile
 
