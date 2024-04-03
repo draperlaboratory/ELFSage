@@ -3,6 +3,12 @@ import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.ProgramHeaderTable
 import ELFSage.Types.Section
 import ELFSage.Types.Segment
+import ELFSage.Util.Flags
+import ELFSage.Util.Hex
+import ELFSage.Util.List
+
+open Hex
+open Flags
 
 def getInhabitedRanges
   [ELFHeader α] (eh : α)
@@ -151,3 +157,118 @@ instance : ELFHeader RawELFFile where
   e_shentsize ef  := ELFHeader.e_shentsize ef.getRawELFHeader
   e_shnum ef      := ELFHeader.e_shnum ef.getRawELFHeader
   e_shstrndx ef   := ELFHeader.e_shstrndx ef.getRawELFHeader
+
+private def getProgramHeaderType (n: Nat) := match n with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 1           => "PT_LOAD"          -- (0x1)
+  | 2           => "PT_DYNAMIC"       -- (0x2)
+  | 3           => "PT_INTERP"        -- (0x3)
+  | 4           => "PT_NOTE"          -- (0x4)
+  | 6           => "PT_PHDR"          -- (0x6)
+  | 1685382480  => "PT_GNU_EH_FRAME"  -- (0x6474E550)
+  | 1685382481  => "PT_GNU_STACK"     -- (0x6474E551)
+  | 1685382482  => "PT_GNU_RELRO"     -- (0x6474E552)
+  | 1685382483  => "PT_GNU_PROPERTY"  -- (0x6474E553)
+  | _ => panic s!"Unrecognized program header type {n}"
+
+private def getProgramHeaderFlag (flagIndex: Nat) := match flagIndex with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0  => "PF_X"  -- (0x1)
+  | 1  => "PF_W"  -- (0x2)
+  | 2  => "PF_R"  -- (0x4)
+  | _ => panic s!"Unrecognized program header flag {flagIndex}"
+
+private def programHeaderFlagsToString (flags: Nat) (indent: String) : String :=
+  getFlagBits flags 32
+    |> .map (λ flag => s!"{indent}{getProgramHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
+    |> (λ a => .insertionSort a (. < .)) -- sort by flag name
+    |> String.join
+
+def RawELFFile.programHeadersToString (elffile : RawELFFile) := Id.run do
+  let mut out := "ProgramHeaders [\n"
+  let headers := elffile.getRawProgramHeaderTableEntries
+  let mut idx := 0
+  for ⟨phte, _⟩ in headers do
+    let nextHeader :=
+        "  ProgramHeader {\n" ++
+      s!"    Type: {getProgramHeaderType $ ProgramHeaderTableEntry.p_type phte} (0x{toHex $ ProgramHeaderTableEntry.p_type phte})\n" ++
+      s!"    Offset: 0x{toHex $ ProgramHeaderTableEntry.p_offset phte}\n" ++
+      s!"    VirtualAddress: 0x{toHex $ ProgramHeaderTableEntry.p_vaddr phte}\n" ++
+      s!"    PhysicalAddress: 0x{toHex $ ProgramHeaderTableEntry.p_paddr phte}\n" ++
+      s!"    FileSize: {ProgramHeaderTableEntry.p_filesz phte}\n" ++
+      s!"    MemSize: {ProgramHeaderTableEntry.p_memsz phte}\n" ++
+      s!"    Flags [ (0x{toHex $ ProgramHeaderTableEntry.p_flags phte})\n" ++
+      s!"{     programHeaderFlagsToString (ProgramHeaderTableEntry.p_flags phte) "      "}" ++
+        "    ]\n" ++
+      s!"    Alignment: {ProgramHeaderTableEntry.p_align phte}\n" ++
+        "  }\n"
+    out := out ++ nextHeader
+    idx := idx + 1
+
+  out := out ++ "]"
+  return out
+
+private def getSectionHeaderType (n: Nat) := match n with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0           => "SHT_NULL"         -- (0x0)
+  | 1           => "SHT_PROGBITS"     -- (0x1)
+  | 3           => "SHT_STRTAB"       -- (0x3)
+  | 4           => "SHT_RELA"         -- (0x4)
+  | 6           => "SHT_DYNAMIC"      -- (0x6)
+  | 7           => "SHT_NOTE"         -- (0x7)
+  | 8           => "SHT_NOBITS"       -- (0x8)
+  | 11          => "SHT_DYNSYM"       -- (0xB)
+  | 14          => "SHT_INIT_ARRAY"   -- (0xE)
+  | 15          => "SHT_FINI_ARRAY"   -- (0xF)
+  | 1879048182  => "SHT_GNU_HASH"     -- (0x6FFFFFF6)
+  | 1879048190  => "SHT_GNU_verneed"  -- (0x6FFFFFFE)
+  | 1879048191  => "SHT_GNU_versym"   -- (0x6FFFFFFF)
+  | _ => panic s!"Unrecognized section header type {n}"
+
+private def getSectionHeaderFlag (flagIndex: Nat) := match flagIndex with
+  -- TODO: Finish populating this list of magic numbers, it is incomplete.
+  | 0  => "SHF_WRITE"      -- (0x1)
+  | 1  => "SHF_ALLOC"      -- (0x2)
+  | 2  => "SHF_EXECINSTR"  -- (0x4)
+  | 4  => "SHF_MERGE"      -- (0x10)
+  | 5  => "SHF_STRINGS"    -- (0x20)
+  | _ => panic s!"Unrecognized section header flag {flagIndex}"
+
+private def sectionHeaderFlagsToString (flags: Nat) (indent: String) : String :=
+  getFlagBits flags 64
+    |> .map (λ flag => s!"{indent}{getSectionHeaderFlag flag} (0x{toHex (1 <<< flag)})\n")
+    |> (λ a => .insertionSort a (. < .)) -- sort by flag name
+    |> String.join
+
+def RawELFFile.sectionHeadersToString (elffile : RawELFFile) := Id.run do
+  let mut out := "Sections [\n"
+  let headers := elffile.getRawSectionHeaderTableEntries
+  let mut idx := 0
+  for ⟨phte, sec⟩ in headers do
+    let name := match sec.section_name_as_string with | .some s => s | _ => ""
+    let nextHeader :=
+        "  Section {\n" ++
+      s!"    Index: {idx}\n" ++
+      s!"    Name: {name} ({SectionHeaderTableEntry.sh_name phte})\n" ++
+      s!"    Type: {getSectionHeaderType $ SectionHeaderTableEntry.sh_type phte} (0x{toHex $ SectionHeaderTableEntry.sh_type phte})\n" ++
+      s!"    Flags [ (0x{toHex $ SectionHeaderTableEntry.sh_flags phte})\n" ++
+      s!"{     sectionHeaderFlagsToString (SectionHeaderTableEntry.sh_flags phte) "      "}" ++
+        "    ]\n" ++
+      s!"    Address: 0x{toHex $ SectionHeaderTableEntry.sh_addr phte}\n" ++
+      s!"    Offset: 0x{toHex $ SectionHeaderTableEntry.sh_offset phte}\n" ++
+      s!"    Size: {SectionHeaderTableEntry.sh_size phte}\n" ++
+      s!"    Link: {SectionHeaderTableEntry.sh_link phte}\n" ++
+      s!"    Info: {SectionHeaderTableEntry.sh_info phte}\n" ++
+      s!"    AddressAlignment: {SectionHeaderTableEntry.sh_addralign phte}\n" ++
+      s!"    EntrySize: {SectionHeaderTableEntry.sh_entsize phte}\n" ++
+        "  }\n"
+    out := out ++ nextHeader
+    idx := idx + 1
+
+  out := out ++ "]"
+  return out
+
+def RawELFFile.headersToString (elffile : RawELFFile) :=
+  toString elffile.getRawELFHeader ++ "\n" ++
+  RawELFFile.sectionHeadersToString elffile ++ "\n" ++
+  RawELFFile.programHeadersToString elffile

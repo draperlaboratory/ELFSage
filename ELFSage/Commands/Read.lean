@@ -34,14 +34,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
-def printProgramHeaders (ef : RawELFFile) := do
-  let headers := ef.getRawProgramHeaderTableEntries
-  let mut idx := 0
-  for ⟨phte, _⟩ in headers do
-    IO.println s!"\nProgram Header {idx}\n"
-    IO.println $ repr phte
-    idx := idx + 1
-
 def symbolNameByLinkAndOffset
   (elffile : RawELFFile)
   (linkIdx: Nat)
@@ -52,20 +44,6 @@ def symbolNameByLinkAndOffset
   | .some ⟨_, sec⟩ =>
     let stringtable : ELFStringTable := ⟨sec.section_body⟩
     pure $ stringtable.stringAt offset
-
-def printSectionHeaders (elffile : RawELFFile) := do
-  let headers := elffile.getRawSectionHeaderTableEntries
-  let mut idx := 0
-  for ⟨phte, sec⟩ in headers do
-    let name := match sec.section_name_as_string with | .some s => s | _ => "no name"
-    IO.println s!"\nSection Header {idx} -- {name} \n"
-    IO.println $ repr phte
-    idx := idx + 1
-
-def printHeaders (elffile : RawELFFile) := do
-  IO.println $ repr elffile.getRawELFHeader
-  printProgramHeaders elffile
-  printSectionHeaders elffile
 
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection
@@ -219,6 +197,18 @@ def printRelocationSections (elffile: RawELFFile) :=
       | .none => IO.print s!"Relocations from unnamed section\n"
       printRelocationA elffile shte sec
 
+private def printFileHeader (eh : RawELFHeader) := do
+  IO.println $ toString eh
+
+private def printSectionHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.sectionHeadersToString elffile
+
+private def printProgramHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.programHeadersToString elffile
+
+private def printHeaders (elffile : RawELFFile) := do
+  IO.println $ RawELFFile.headersToString elffile
+
 def runReadCmd (p: Cli.Parsed): IO UInt32 := do
 
   match checkImplemented p with
@@ -240,7 +230,7 @@ def runReadCmd (p: Cli.Parsed): IO UInt32 := do
 
   for flag in p.flags do
     match flag.flag.longName with
-    | "file-header" => IO.println $ repr elfheader
+    | "file-header" => printFileHeader elfheader
     | "headers" => printHeaders elffile
     | "program-headers" => printProgramHeaders elffile
     | "segments" => printProgramHeaders elffile
