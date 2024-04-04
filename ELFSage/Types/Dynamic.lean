@@ -3,8 +3,8 @@ import ELFSage.Util.ByteArray
 import ELFSage.Constants.Dynamic
 
 inductive DynamicUnion (α β : Type) where
-  | d_val     : α → DynamicUnion α β 
-  | d_ptr     : β → DynamicUnion α β 
+  | d_val     : α → DynamicUnion α β
+  | d_ptr     : β → DynamicUnion α β
   | d_ignored : ByteArray → DynamicUnion α β
   deriving Repr
 
@@ -133,11 +133,11 @@ def Dynamic.Tag.mkRawTag (x : Int) :  Dynamic.Tag :=
 
 end
 
-def Dynamic.Tag.toFieldInterpretation 
+def Dynamic.Tag.toFieldInterpretation
   (dt : Dynamic.Tag)
   (os : Nat → Except String Dynamic.FieldInterpretation)
-  (proc : Nat → Except String Dynamic.FieldInterpretation) 
-  :  Except String Dynamic.FieldInterpretation := 
+  (proc : Nat → Except String Dynamic.FieldInterpretation)
+  :  Except String Dynamic.FieldInterpretation :=
   match dt with
   | dt_null => .ok .d_ignored
   | dt_needed => .ok .d_val
@@ -172,7 +172,7 @@ def Dynamic.Tag.toFieldInterpretation
   | dt_flags => .ok .d_val
   -- XXX: linksem makes the effect of DT_PREINIT_ARRAY (which is equal to
   -- DT_ENCODING, which is equal to 32) conditional on whether you're dealing
-  -- with a shared object: 
+  -- with a shared object:
   --   https://github.com/rems-project/linksem/blob/238f803b18e485eecbc550e0e2292257eaf7029b/src/elf_dynamic.lem#L364
   -- But other sources seem to say that it should be d_ptr
   --     https://www.sco.com/developers/gabi/2012-12-31/ch5.dynamic.html#dynamic_section
@@ -187,7 +187,7 @@ def Dynamic.Tag.toFieldInterpretation
   -- oracle includes a fair number of tags not mentioned here or at linksem.
   | dt_unknown (x : Int) => if (x > DT_HIOS ∨ x < DT_LOPROC) ∧ x % 2 == 0
     then .ok .d_ptr
-    else .error s!"unknown dynamic tag prevents interpretation of dt_un"  
+    else .error s!"unknown dynamic tag prevents interpretation of dt_un"
 
 class DynamicEntry (α : Type) where
   d_tag : α → Int
@@ -209,11 +209,11 @@ def mkELF32DynamicEntry?
   (isBigEndian : Bool)
   (bs : ByteArray)
   (offset : Nat)
-  (h : bs.size - offset ≥ 0x8) 
-  : Except String ELF32DynamicEntry := 
+  (h : bs.size - offset ≥ 0x8)
+  : Except String ELF32DynamicEntry :=
   let tagval := getUInt32from (offset + 0x0) (by omega)
   let rawTag := Dynamic.Tag.mkRawTag (⟨tagval⟩ : SInt32).toInt
-  match rawTag.toFieldInterpretation 
+  match rawTag.toFieldInterpretation
       (λ_ => .error "os reserved tag, not implemented")
       (λ_ => .error "proc reserved tag, not implemented")
   with
@@ -240,11 +240,11 @@ def mkELF64DynamicEntry?
   (isBigEndian : Bool)
   (bs : ByteArray)
   (offset : Nat)
-  (h : bs.size - offset ≥ 0x10) 
-  : Except String ELF64DynamicEntry := 
+  (h : bs.size - offset ≥ 0x10)
+  : Except String ELF64DynamicEntry :=
   let tagval := getUInt64from (offset + 0x00) (by omega)
   let rawTag := Dynamic.Tag.mkRawTag (⟨tagval⟩ : SInt64).toInt
-  match rawTag.toFieldInterpretation 
+  match rawTag.toFieldInterpretation
       (λ_ => .error "os reserved tag, not implemented")
       (λ_ => .error "proc reserved tag, not implemented")
   with
@@ -265,13 +265,13 @@ def mkRawDynamicEntry?
   (is64Bit : Bool)
   (isBigendian : Bool)
   (offset : Nat)
-  : Except String RawDynamicEntry := 
+  : Except String RawDynamicEntry :=
   match is64Bit with
-  | true   => 
+  | true   =>
     if h : bs.size - offset ≥ 0x10
     then .elf64 <$> mkELF64DynamicEntry? isBigendian bs offset h
     else throw $ err 0x10
-  | false  => 
+  | false  =>
     if h : bs.size - offset ≥ 0x8
     then .elf32 <$> mkELF32DynamicEntry? isBigendian bs offset h
     else throw $ err 0x08

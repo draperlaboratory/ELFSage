@@ -1,22 +1,22 @@
 /- ELF File Types -/
 
-/-- No file type -/ 
+/-- No file type -/
 def ELFHeader.FileType.none : Nat := 0
-/-- Relocatable file -/ 
+/-- Relocatable file -/
 def ELFHeader.FileType.rel : Nat := 1
-/-- Executable file -/ 
+/-- Executable file -/
 def ELFHeader.FileType.exec : Nat := 2
-/-- Shared object file -/ 
+/-- Shared object file -/
 def ELFHeader.FileType.dyn : Nat := 3
-/-- Core file -/ 
+/-- Core file -/
 def ELFHeader.FileType.core : Nat := 4
-/-- Operating-system specific -/ 
+/-- Operating-system specific -/
 def ELFHeader.FileType.lo_os : Nat := 65024 --0xfe00
-/-- Operating-system specific -/ 
+/-- Operating-system specific -/
 def ELFHeader.FileType.hi_os : Nat := 65279 --0xfeff
-/-- Processor specific -/ 
+/-- Processor specific -/
 def ELFHeader.FileType.lo_proc : Nat := 65280 --0xff00
-/-- Processor specific -/ 
+/-- Processor specific -/
 def ELFHeader.FileType.hi_proc : Nat := 65535 --0xffff
 
 /- ELF Machine Architectures -/
