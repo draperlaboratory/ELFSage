@@ -351,16 +351,8 @@ theorem UInt16.ByteArray_roundtrip :
   ]
 
   simp [
-    show Nat.mod 256 65536 = 256 by decide,
     show Nat.mod i size = i from Nat.mod_eq_of_lt h,
-    show (i / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2) = i / 256 by
-      rw [Nat.div_div_eq_div_mul (i / 2 / 2 / 2 / 2 / 2 / 2) 2 2]
-      rw [Nat.div_div_eq_div_mul (i / 2 / 2 / 2 / 2 / 2) 2 (2 * 2)]
-      rw [Nat.div_div_eq_div_mul (i / 2 / 2 / 2 / 2) 2 (2 * 2 * 2)]
-      rw [Nat.div_div_eq_div_mul (i / 2 / 2 / 2 ) 2 (2 * 2 * 2 * 2)]
-      rw [Nat.div_div_eq_div_mul (i / 2 / 2 ) 2 (2 * 2 * 2 * 2 * 2)]
-      rw [Nat.div_div_eq_div_mul (i / 2 ) 2 (2 * 2 * 2 * 2 * 2 * 2)]
-      rw [Nat.div_div_eq_div_mul i 2 (2 * 2 * 2 * 2 * 2 * 2 * 2)]
+    Nat.div_div_eq_div_mul,
   ]
 
   simp [
