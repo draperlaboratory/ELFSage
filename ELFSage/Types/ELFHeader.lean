@@ -1,5 +1,6 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
+import ELFSage.Constants.ELFHeader
 import ELFSage.Util.Hex
 
 open Hex
@@ -43,25 +44,20 @@ def ELFHeader.getSectionHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
 def ELFHeader.getProgramHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
   (List.range (ELFHeader.e_phnum eh)).map λidx ↦ ELFHeader.e_phoff eh + ELFHeader.e_phentsize eh * idx
 
-private def getHeaderClass (n: UInt8) : String := match n with
-  -- TODO: Finish populating this list of magic numbers, it is incomplete.
-  | 2 => "64-bit"
-  | _ => panic s!"Unrecognized header class {n}"
+def ELFHeader.e_type_val [ELFHeader α] (eh : α) :=
+  ELFHeader.e_type.fromNat ∘ ELFHeader.e_type $ eh
 
-private def getHeaderDataEncoding (n: UInt8) : String := match n with
-  -- TODO: Finish populating this list of magic numbers, it is incomplete.
-  | 1 => "LittleEndian"
-  | _ => panic s!"Unrecognized header data encoding {n}"
+def ELFHeader.ei_class_val [ELFHeader α] (eh : α) :=
+  ELFHeader.ei_class.fromNat ei_class
+  where ei_class := let ⟨bytes, _⟩ := e_ident eh; bytes[0x4].toNat
 
-private def getHeaderOS (n: UInt8) : String := match n with
-  -- TODO: Finish populating this list of magic numbers, it is incomplete.
-  | 0 => "SystemV"
-  | _ => panic s!"Unrecognized header OS/ABI {n}"
+def ELFHeader.ei_data_val [ELFHeader α] (eh : α) :=
+  ELFHeader.ei_data.fromNat ei_data
+  where ei_data := let ⟨bytes, _⟩ := e_ident eh; bytes[0x5].toNat
 
-private def getHeaderType (n: Nat) : String := match n with
-  -- TODO: Finish populating this list of magic numbers, it is incomplete.
-  | 3 => "SharedObject"
-  | _ => panic s!"Unrecognized header type {n}"
+def ELFHeader.ei_osabi_val [ELFHeader α] (eh : α) :=
+  ELFHeader.ei_osabi.fromNat ei_osabi
+  where ei_osabi := let ⟨bytes, _⟩ := e_ident eh; bytes[0x7].toNat
 
 private def getHeaderMachine (n: Nat) : String := match n with
   -- TODO: Finish populating this list of magic numbers, it is incomplete.
@@ -69,22 +65,17 @@ private def getHeaderMachine (n: Nat) : String := match n with
   | _ => panic s!"Unrecognized header machine {n}"
 
 private def ELFHeader.toString [ELFHeader α] (eh: α) : String :=
-  let ident (i : Fin 16) := (ELFHeader.e_ident eh).bytes.get ⟨ i, by simp [(ELFHeader.e_ident eh).sized] ⟩
-  let identAsHex (i: Fin 16) := toHex (ident i).toNat
-  let identAsHexLength2 (i: Fin 16) := toHexMinLength (ident i).toNat 2
-
-  let val :=
-    "ElfHeader {\n" ++
-    "  Ident {\n" ++
+  "ElfHeader {\n" ++
+  "  Ident {\n" ++
   s!"    Magic: ({identAsHexLength2 0} {identAsHexLength2 1} {identAsHexLength2 2} {identAsHexLength2 3})\n" ++
-  s!"    Class: {getHeaderClass $ ident 4} (0x{identAsHex 4})\n" ++
-  s!"    DataEncoding: {getHeaderDataEncoding $ ident 5} (0x{identAsHex 5})\n" ++
+  s!"    Class: {ELFHeader.ei_class_val eh} (0x{identAsHex 4})\n" ++
+  s!"    DataEncoding: {ELFHeader.ei_data_val eh} (0x{identAsHex 5})\n" ++
   s!"    FileVersion: {ident 6}\n" ++
-  s!"    OS/ABI: {getHeaderOS $ ident 7} (0x{identAsHex 7})\n" ++
+  s!"    OS/ABI: {ELFHeader.ei_osabi_val eh} (0x{identAsHex 7})\n" ++
   s!"    ABIVersion: {ident 8}\n" ++
   s!"    Unused: ({identAsHexLength2 9} {identAsHexLength2 10} {identAsHexLength2 11} {identAsHexLength2 12} {identAsHexLength2 13} {identAsHexLength2 14} {identAsHexLength2 15})\n" ++
     "  }\n" ++
-  s!"  Type: {getHeaderType $ ELFHeader.e_type eh} (0x{toHex $ ELFHeader.e_type eh})\n" ++
+  s!"  Type: {ELFHeader.e_type_val eh} (0x{toHex $ ELFHeader.e_type eh})\n" ++
   s!"  Machine: {getHeaderMachine $ ELFHeader.e_machine eh} (0x{toHex $ ELFHeader.e_machine eh})\n" ++
   s!"  Version: {ELFHeader.e_version eh}\n" ++
   s!"  Entry: 0x{toHex $ ELFHeader.e_entry eh}\n" ++
@@ -98,8 +89,12 @@ private def ELFHeader.toString [ELFHeader α] (eh: α) : String :=
   s!"  SectionHeaderEntrySize: {ELFHeader.e_shentsize eh}\n" ++
   s!"  SectionHeaderCount: {ELFHeader.e_shnum eh}\n" ++
   s!"  StringTableSectionIndex: {ELFHeader.e_shstrndx eh}\n" ++
-    "}"
-  val
+  "}"
+  where
+    ident (i : Fin 16) :=
+      (ELFHeader.e_ident eh).bytes.get ⟨ i, by simp [(ELFHeader.e_ident eh).sized] ⟩
+    identAsHex (i: Fin 16) := toHex (ident i).toNat
+    identAsHexLength2 (i: Fin 16) := toHexMinLength (ident i).toNat 2
 
 structure ELF64Header where
   /-- Identification field -/

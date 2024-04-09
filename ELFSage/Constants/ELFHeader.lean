@@ -1,23 +1,239 @@
+import ELFSage.Util.Hex
 /- ELF File Types -/
 
-/-- No file type -/
-def ELFHeader.FileType.none : Nat := 0
-/-- Relocatable file -/
-def ELFHeader.FileType.rel : Nat := 1
-/-- Executable file -/
-def ELFHeader.FileType.exec : Nat := 2
-/-- Shared object file -/
-def ELFHeader.FileType.dyn : Nat := 3
-/-- Core file -/
-def ELFHeader.FileType.core : Nat := 4
+/- ELf file classes.  The file format is designed to be portable among machines
+of various sizes, without imposing the sizes of the largest machine on the
+smallest. The class of the file defines the basic types used by the data
+structures of the object file container itself. -/
+inductive ELFHeader.ei_class.values where
+  /-- invalid arch specification --/
+  | elfclassnone : ELFHeader.ei_class.values
+  /-- 32-bit architecture --/
+  | elfclass32 : ELFHeader.ei_class.values
+  /-- 64-bit architecture --/
+  | elfclass64 : ELFHeader.ei_class.values
+  /-- invalid arch --/
+  | elfclass_other : Nat → ELFHeader.ei_class.values
+
+def ELFHeader.ei_class.fromNat : Nat → ELFHeader.ei_class.values
+  | 0 => .elfclassnone
+  | 1 => .elfclass32
+  | 2 => .elfclass64
+  | n => .elfclass_other n
+
+def ELFHeader.ei_class.toNat : ELFHeader.ei_class.values → Nat
+  | .elfclassnone     => 0
+  | .elfclass32       => 1
+  | .elfclass64       => 2
+  | .elfclass_other n => n
+
+instance : ToString (ELFHeader.ei_class.values) where
+  toString
+  | .elfclassnone     => "None"
+  | .elfclass32       => "32-bit"
+  | .elfclass64       => "64-bit"
+  | .elfclass_other n => s!"Unrecognized ei_class: 0x{Hex.toHex n}"
+
+inductive ELFHeader.ei_data.values where
+  /-- invalid arch specification --/
+  | elfdatanone : ELFHeader.ei_data.values
+  /-- 32-bit architecture --/
+  | elfdata2lsb : ELFHeader.ei_data.values
+  /-- 64-bit architecture --/
+  | elfdata2msb : ELFHeader.ei_data.values
+  /-- invalid arch --/
+  | elfdata_other : Nat → ELFHeader.ei_data.values
+
+/- ELF data encodings.  Byte e_ident[elf_ei_data] specifies the encoding of
+   both the data structures used by object file container and data contained in
+   object file sections. -/
+def ELFHeader.ei_data.fromNat : Nat → ELFHeader.ei_data.values
+  | 0 => .elfdatanone
+  | 1 => .elfdata2lsb
+  | 2 => .elfdata2msb
+  | n => .elfdata_other n
+
+def ELFHeader.ei_data.toNat : ELFHeader.ei_data.values → Nat
+  | .elfdatanone     => 0
+  | .elfdata2lsb     => 1
+  | .elfdata2msb     => 2
+  | .elfdata_other n => n
+
+instance : ToString (ELFHeader.ei_data.values) where
+  toString
+  | .elfdatanone     => "None"
+  | .elfdata2lsb     => "LittleEndian"
+  | .elfdata2msb     => "BigEndian"
+  | .elfdata_other n => s!"Unrecognized ei_data: 0x{Hex.toHex n}"
+
+/- OS and ABI versions.  Byte e_ident[elf_ei_osabi] identifies the OS- or
+   ABI-specific ELF extensions used by this file. Some fields in other ELF
+   structures have flags and values that have operating system and/or ABI
+   specific meanings; the interpretation of those fields is determined by the
+   value of this byte. -/
+inductive ELFHeader.ei_osabi.values where
+  /-- No extensions or unspecified -/
+  | elfosabi_none : ELFHeader.ei_osabi.values
+  /-- Hewlett-Packard HP-UX -/
+  | elfosabi_hpux : ELFHeader.ei_osabi.values
+  /-- NetBSD -/
+  | elfosabi_netbsd : ELFHeader.ei_osabi.values
+  /-- GNU -/
+  | elfosabi_gnu : ELFHeader.ei_osabi.values
+  /-- Sun Solaris -/
+  | elfosabi_solaris : ELFHeader.ei_osabi.values
+  /-- AIX -/
+  | elfosabi_aix : ELFHeader.ei_osabi.values
+  /-- IRIX -/
+  | elfosabi_irix : ELFHeader.ei_osabi.values
+  /-- FreeBSD -/
+  | elfosabi_freebsd : ELFHeader.ei_osabi.values
+  /-- Compaq Tru64 Unix -/
+  | elfosabi_tru64 : ELFHeader.ei_osabi.values
+  /-- Novell Modesto -/
+  | elfosabi_modesto : ELFHeader.ei_osabi.values
+  /-- OpenBSD -/
+  | elfosabi_openbsd : ELFHeader.ei_osabi.values
+  /-- OpenVMS -/
+  | elfosabi_openvms : ELFHeader.ei_osabi.values
+  /-- Hewlett-Packard Non-stop Kernel -/
+  | elfosabi_nsk : ELFHeader.ei_osabi.values
+  /-- Amiga Research OS -/
+  | elfosabi_aros : ELFHeader.ei_osabi.values
+  /-- FenixOS highly-scalable multi-core OS -/
+  | elfosabi_fenixos : ELFHeader.ei_osabi.values
+  /-- Nuxi CloudABI -/
+  | elfosabi_cloudabi : ELFHeader.ei_osabi.values
+  /-- Stratus technologies OpenVOS -/
+  | elfosabi_openvos : ELFHeader.ei_osabi.values
+  /-- ARM aeabi -/
+  | elfosabi_arm_aeabi : ELFHeader.ei_osabi.values
+  /-- ARM abi -/
+  | elfosabi_arm : ELFHeader.ei_osabi.values
+  /-- standalone (embedded) application -/
+  | elfosabi_standalone : ELFHeader.ei_osabi.values
+  | elfosabi_other : Nat → ELFHeader.ei_osabi.values
+
+def ELFHeader.ei_osabi.fromNat : Nat → ELFHeader.ei_osabi.values
+  | 0   => .elfosabi_none
+  | 1   => .elfosabi_hpux
+  | 2   => .elfosabi_netbsd
+  | 3   => .elfosabi_gnu
+  | 6   => .elfosabi_solaris
+  | 7   => .elfosabi_aix
+  | 8   => .elfosabi_irix
+  | 9   => .elfosabi_freebsd
+  | 10  => .elfosabi_tru64
+  | 11  => .elfosabi_modesto
+  | 12  => .elfosabi_openbsd
+  | 13  => .elfosabi_openvms
+  | 14  => .elfosabi_nsk
+  | 15  => .elfosabi_aros
+  | 16  => .elfosabi_fenixos
+  | 17  => .elfosabi_cloudabi
+  | 18  => .elfosabi_openvos
+  | 64  => .elfosabi_arm_aeabi
+  | 97  => .elfosabi_arm
+  | 255 => .elfosabi_standalone
+  | n   => .elfosabi_other n
+
+def ELFHeader.ei_osabi.toNat : ELFHeader.ei_osabi.values → Nat
+  | .elfosabi_none       => 0
+  | .elfosabi_hpux       => 1
+  | .elfosabi_netbsd     => 2
+  | .elfosabi_gnu        => 3
+  | .elfosabi_solaris    => 6
+  | .elfosabi_aix        => 7
+  | .elfosabi_irix       => 8
+  | .elfosabi_freebsd    => 9
+  | .elfosabi_tru64      => 10
+  | .elfosabi_modesto    => 11
+  | .elfosabi_openbsd    => 12
+  | .elfosabi_openvms    => 13
+  | .elfosabi_nsk        => 14
+  | .elfosabi_aros       => 15
+  | .elfosabi_fenixos    => 16
+  | .elfosabi_cloudabi   => 17
+  | .elfosabi_openvos    => 18
+  | .elfosabi_arm_aeabi  => 64
+  | .elfosabi_arm        => 97
+  | .elfosabi_standalone => 255
+  | .elfosabi_other n    => n
+  --TODO: missing: CUDA, GNU/HURD
+
+instance : ToString (ELFHeader.ei_osabi.values) where
+  toString
+  | .elfosabi_none       => "SystemV"
+  | .elfosabi_hpux       => "HPUX"
+  | .elfosabi_netbsd     => "NetBSD"
+  | .elfosabi_gnu        => "GNU/Linux"
+  | .elfosabi_solaris    => "Solaris"
+  | .elfosabi_aix        => "AIX"
+  | .elfosabi_irix       => "IRIX"
+  | .elfosabi_freebsd    => "FREEBSD"
+  | .elfosabi_tru64      => "TRU64"
+  | .elfosabi_modesto    => "Modesto"
+  | .elfosabi_openbsd    => "OpenBSD"
+  | .elfosabi_openvms    => "OpenVMS"
+  | .elfosabi_nsk        => "NSK"
+  | .elfosabi_aros       => "AROS"
+  | .elfosabi_fenixos    => "FenixOS"
+  | .elfosabi_cloudabi   => "CloudABI"
+  | .elfosabi_openvos    => "OpenVOS" --not recognized by llvm-dumpobj?
+  | .elfosabi_arm_aeabi  => "ARM AEABI" --not recognized by llvm-dumpobj?
+  | .elfosabi_arm        => "ARM"
+  | .elfosabi_standalone => "Standalone"
+  | .elfosabi_other n    => s!"Unrecognized ei_osabi: {Hex.toHex n}"
+
+inductive ELFHeader.e_type.values where
+  /-- No file type -/
+  | et_none  : ELFHeader.e_type.values
+  /-- Relocatable file -/
+  | et_rel   : ELFHeader.e_type.values
+  /-- Executable file -/
+  | et_exec  : ELFHeader.e_type.values
+  /-- Shared object file -/
+  | et_dyn   : ELFHeader.e_type.values
+  /-- Core file -/
+  | et_core  : ELFHeader.e_type.values
+  /-- Operating system or processor specific -/
+  | et_other : Nat → ELFHeader.e_type.values
+
 /-- Operating-system specific -/
-def ELFHeader.FileType.lo_os : Nat := 65024 --0xfe00
+abbrev ELFHeader.e_type.lo_os : Nat := 65024 --0xfe00
 /-- Operating-system specific -/
-def ELFHeader.FileType.hi_os : Nat := 65279 --0xfeff
+abbrev ELFHeader.e_type.hi_os : Nat := 65279 --0xfeff
 /-- Processor specific -/
-def ELFHeader.FileType.lo_proc : Nat := 65280 --0xff00
+abbrev ELFHeader.e_type.lo_proc : Nat := 65280 --0xff00
 /-- Processor specific -/
-def ELFHeader.FileType.hi_proc : Nat := 65535 --0xffff
+abbrev ELFHeader.e_type.hi_proc : Nat := 65535 --0xffff
+
+-- Are there macros for this kind of symmetic pattern match?
+def ELFHeader.e_type.fromNat : Nat → ELFHeader.e_type.values
+  | 0 => .et_none
+  | 1 => .et_rel
+  | 2 => .et_exec
+  | 3 => .et_dyn
+  | 4 => .et_core
+  | n => .et_other n
+
+def ELFHeader.e_type.toNat : ELFHeader.e_type.values → Nat
+  | .et_none    => 0
+  | .et_rel     => 1
+  | .et_exec    => 2
+  | .et_dyn     => 3
+  | .et_core    => 4
+  | .et_other n => n
+
+instance : ToString (ELFHeader.e_type.values) where
+  toString
+  | .et_none    => "None"
+  | .et_rel     => "Relocatable"
+  | .et_exec    => "Executable"
+  | .et_dyn     => "SharedObject"
+  | .et_core    => "Core"
+  | .et_other n => s!"Unrecognized e_type: 0x{Hex.toHex n}"
+
 
 /- ELF Machine Architectures -/
 
@@ -62,9 +278,9 @@ def ELFHeader.Arch.ba2 : Nat := 202
 /-- Beyond BA1 CPU architecture *-/
 def ELFHeader.Arch.ba1 : Nat := 201
 /-- Freescale 56800EX Digital Signal Controller (DSC) -/
-def ELFHeader.Arch.5600ex : Nat := 200
+def ELFHeader.Arch._5600ex : Nat := 200
 /-- 199 Renesas 78KOR family -/
-def ELFHeader.Arch.78kor : Nat := 199
+def ELFHeader.Arch._78kor : Nat := 199
 /-- Broadcom VideoCore V processor -/
 def ELFHeader.Arch.videocore5 : Nat := 198
 /-- Renesas RL78 family -/
@@ -110,7 +326,7 @@ def ELFHeader.Arch.trimedia : Nat := 163
 /-- QUALCOMM DSP6 processor -/
 def ELFHeader.Arch.qdsp6 : Nat := 164
 /-- Intel 8051 and variants -/
-def ELFHeader.Arch.8051 : Nat := 165
+def ELFHeader.Arch._8051 : Nat := 165
 /-- STMicroelectronics STxP7x family of configurable and extensible RISC processors -/
 def ELFHeader.Arch.stxp7x : Nat := 166
 /-- Andes Technology compact code size embedded RISC processor family -/
@@ -254,13 +470,13 @@ def ELFHeader.Arch.m32 : Nat := 1
 /-- SPARC -/
 def ELFHeader.Arch.sparc : Nat := 2
 /-- Intel 80386 -/
-def ELFHeader.Arch.386 : Nat := 3
+def ELFHeader.Arch._386 : Nat := 3
 /-- Motorola 68000 -/
-def ELFHeader.Arch.68k : Nat := 4
+def ELFHeader.Arch._68k : Nat := 4
 /-- Motorola 88000 -/
-def ELFHeader.Arch.88k : Nat := 5
+def ELFHeader.Arch._88k : Nat := 5
 /-- Intel 80860 -/
-def ELFHeader.Arch.860 : Nat := 7
+def ELFHeader.Arch._860 : Nat := 7
 /-- MIPS I Architecture -/
 def ELFHeader.Arch.mips : Nat := 8
 /-- IBM System/370 Processor -/
@@ -274,7 +490,7 @@ def ELFHeader.Arch.vpp500 : Nat := 17
 /-- Enhanced instruction set SPARC -/
 def ELFHeader.Arch.sparc32plus : Nat := 18
 /-- Intel 80960 -/
-def ELFHeader.Arch.960 : Nat := 19
+def ELFHeader.Arch._960 : Nat := 19
 /-- PowerPC -/
 def ELFHeader.Arch.ppc : Nat := 20
 /-- 64-bit PowerPC -/
@@ -318,7 +534,7 @@ def ELFHeader.Arch.mips_x : Nat := 51
 /-- Motorola ColdFire -/
 def ELFHeader.Arch.coldfire : Nat := 52
 /-- Motorola M68HC12 -/
-def ELFHeader.Arch.68hc12 : Nat := 53
+def ELFHeader.Arch._68hc12 : Nat := 53
 /-- Fujitsu MMA Multimedia Accelerator -/
 def ELFHeader.Arch.mma : Nat := 54
 /-- Siemens PCP -/
@@ -350,13 +566,13 @@ def ELFHeader.Arch.st9plus : Nat := 67
 /-- STMicroelectronics ST7 8-bit microcontroller -/
 def ELFHeader.Arch.st7 : Nat := 68
 /-- Motorola MC68HC16 Microcontroller -/
-def ELFHeader.Arch.68hc16 : Nat := 69
+def ELFHeader.Arch._68hc16 : Nat := 69
 /-- Motorola MC68HC11 Microcontroller -/
-def ELFHeader.Arch.68hc11 : Nat := 70
+def ELFHeader.Arch._68hc11 : Nat := 70
 /-- Motorola MC68HC08 Microcontroller -/
-def ELFHeader.Arch.68hc08 : Nat := 71
+def ELFHeader.Arch._68hc08 : Nat := 71
 /-- Motorola MC68HC05 Microcontroller -/
-def ELFHeader.Arch.68hc05 : Nat := 72
+def ELFHeader.Arch._68hc05 : Nat := 72
 /-- Silicon Graphics SVx -/
 def ELFHeader.Arch.svx : Nat := 73
 /-- STMicroelectronics ST19 8-bit microcontroller -/
@@ -481,103 +697,36 @@ def ELFHeader.Version.none : Nat := 0
 /-- Current version -/
 def ELFHeader.Version.current : Nat := 1
 
-
 /- Identification indices.  The initial bytes of an ELF header (and an object
   file) correspond to the e_ident member.
 -/
 
 /-- File identification -/
-def ELFHeader.Ident.mag0 : Nat := 0
+abbrev ELFHeader.Ident.mag0 : Nat := 0
 /-- File identification -/
-def ELFHeader.Ident.mag1 : Nat := 1
+abbrev ELFHeader.Ident.mag1 : Nat := 1
 /-- File identification -/
-def ELFHeader.Ident.mag2 : Nat := 2
+abbrev ELFHeader.Ident.mag2 : Nat := 2
 /-- File identification -/
-def ELFHeader.Ident.mag3 : Nat := 3
+abbrev ELFHeader.Ident.mag3 : Nat := 3
 /-- File class -/
-def ELFHeader.Ident.class : Nat := 4
+abbrev ELFHeader.Ident.class : Nat := 4
 /-- Data encoding -/
-def ELFHeader.Ident.data : Nat := 5
+abbrev ELFHeader.Ident.data : Nat := 5
 /-- File version -/
-def ELFHeader.Ident.version : Nat := 6
+abbrev ELFHeader.Ident.version : Nat := 6
 /-- Operating system/ABI identification -/
-def ELFHeader.Ident.osabi : Nat := 7
+abbrev ELFHeader.Ident.osabi : Nat := 7
 /-- ABI version -/
-def ELFHeader.Ident.abiversion : Nat := 8
+abbrev ELFHeader.Ident.abiversion : Nat := 8
 /-- Start of padding bytes -/
-def ELFHeader.Ident.pad : Nat := 9
+abbrev ELFHeader.Ident.pad : Nat := 9
 /-- Size of e*_ident[] -/
-def ELFHeader.Ident.nident : Nat := 16
-
-/- ELf file classes.  The file format is designed to be portable among machines
-of various sizes, without imposing the sizes of the largest machine on the
-smallest. The class of the file defines the basic types used by the data
-structures of the object file container itself. -/
-
-/-- Invalid class -/
-def ELFHeader.Class.none : Nat := 0
-/-- 32 bit objects -/
-def ELFHeader.Class.ss_32 : Nat := 1
-/-- 64 bit objects -/
-def ELFHeader.Class.ss_64 : Nat := 2
-
-/- ELF data encodings.  Byte e_ident[elf_ei_data] specifies the encoding of both the
-data structures used by object file container and data contained in object
-file sections. -/
-
-/-- Invalid data encoding -/
-def ELFHeader.Data.none : Nat := 0
-/-- Two's complement values, least significant byte occupying lowest address -/
-def ELFHeader.Data._2lsb : Nat := 1
-/-- Two's complement values, most significant byte occupying lowest address -/
-def ELFHeader.Data._2msb : Nat := 2
-
-/- OS and ABI versions.  Byte e_ident[elf_ei_osabi] identifies the OS- or
-ABI-specific ELF extensions used by this file. Some fields in other ELF
-structures have flags and values that have operating system and/or ABI
-specific meanings; the interpretation of those fields is determined by the
-value of this byte. -/
-
-/-- No extensions or unspecified -/
-def ELFHeader.OSABI.none : Nat := 0
-/-- Hewlett-Packard HP-UX -/
-def ELFHeader.OSABI.hpux : Nat := 1
-/-- NetBSD -/
-def ELFHeader.OSABI.netbsd : Nat := 2
-/-- GNU -/
-def ELFHeader.OSABI.gnu : Nat := 3
-/-- Linux, historical alias for GNU -/
-def ELFHeader.OSABI.linux : Nat := 3
-/-- Sun Solaris -/
-def ELFHeader.OSABI.solaris : Nat := 6
-/-- AIX -/
-def ELFHeader.OSABI.aix : Nat := 7
-/-- IRIX -/
-def ELFHeader.OSABI.irix : Nat := 8
-/-- FreeBSD -/
-def ELFHeader.OSABI.freebsd : Nat := 9
-/-- Compaq Tru64 Unix -/
-def ELFHeader.OSABI.tru64 : Nat := 10
-/-- Novell Modesto -/
-def ELFHeader.OSABI.modesto : Nat := 11
-/-- OpenBSD -/
-def ELFHeader.OSABI.openbsd : Nat := 12
-/-- OpenVMS -/
-def ELFHeader.OSABI.openvms : Nat := 13
-/-- Hewlett-Packard Non-stop Kernel -/
-def ELFHeader.OSABI.nsk : Nat := 14
-/-- Amiga Research OS -/
-def ELFHeader.OSABI.aros : Nat := 15
-/-- FenixOS highly-scalable multi-core OS -/
-def ELFHeader.OSABI.fenixos : Nat := 16
-/-- Nuxi CloudABI -/
-def ELFHeader.OSABI.cloudabi : Nat := 17
-/-- Stratus technologies OpenVOS -/
-def ELFHeader.OSABI.openvos : Nat := 18
+abbrev ELFHeader.Ident.nident : Nat := 16
 
 /- ELF Header type -/
 
 /-- [ei_nident] is the fixed length of the identification field in the
 [elf32_ehdr] type. -/
 
-def ELFHeader.Type.ei_nident : Nat := 16
+abbrev ELFHeader.Type.ei_nident : Nat := 16
