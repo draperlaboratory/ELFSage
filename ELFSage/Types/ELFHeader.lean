@@ -47,6 +47,9 @@ def ELFHeader.getProgramHeaderOffsets [ELFHeader α] (eh : α) : List Nat :=
 def ELFHeader.e_type_val [ELFHeader α] (eh : α) :=
   ELFHeader.e_type.fromNat ∘ ELFHeader.e_type $ eh
 
+def ELFHeader.e_machine_val [ELFHeader α] (eh : α) :=
+  ELFHeader.e_machine.fromNat ∘ ELFHeader.e_machine $ eh
+
 def ELFHeader.ei_class_val [ELFHeader α] (eh : α) :=
   ELFHeader.ei_class.fromNat ei_class
   where ei_class := let ⟨bytes, _⟩ := e_ident eh; bytes[0x4].toNat
@@ -58,11 +61,6 @@ def ELFHeader.ei_data_val [ELFHeader α] (eh : α) :=
 def ELFHeader.ei_osabi_val [ELFHeader α] (eh : α) :=
   ELFHeader.ei_osabi.fromNat ei_osabi
   where ei_osabi := let ⟨bytes, _⟩ := e_ident eh; bytes[0x7].toNat
-
-private def getHeaderMachine (n: Nat) : String := match n with
-  -- TODO: Finish populating this list of magic numbers, it is incomplete.
-  | 62 => "EM_X86_64"
-  | _ => panic s!"Unrecognized header machine {n}"
 
 private def ELFHeader.toString [ELFHeader α] (eh: α) : String :=
   "ElfHeader {\n" ++
@@ -76,7 +74,7 @@ private def ELFHeader.toString [ELFHeader α] (eh: α) : String :=
   s!"    Unused: ({identAsHexLength2 9} {identAsHexLength2 10} {identAsHexLength2 11} {identAsHexLength2 12} {identAsHexLength2 13} {identAsHexLength2 14} {identAsHexLength2 15})\n" ++
     "  }\n" ++
   s!"  Type: {ELFHeader.e_type_val eh} (0x{toHex $ ELFHeader.e_type eh})\n" ++
-  s!"  Machine: {getHeaderMachine $ ELFHeader.e_machine eh} (0x{toHex $ ELFHeader.e_machine eh})\n" ++
+  s!"  Machine: {ELFHeader.e_machine_val eh} (0x{toHex $ ELFHeader.e_machine eh})\n" ++
   s!"  Version: {ELFHeader.e_version eh}\n" ++
   s!"  Entry: 0x{toHex $ ELFHeader.e_entry eh}\n" ++
   s!"  ProgramHeaderOffset: 0x{toHex $ ELFHeader.e_phoff eh}\n" ++
