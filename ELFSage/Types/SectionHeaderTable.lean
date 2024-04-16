@@ -1,6 +1,7 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 import ELFSage.Types.ELFHeader
+import ELFSage.Util.Hex
 
 class SectionHeaderTableEntry (α : Type) where
   /-- Name of the section -/
@@ -81,20 +82,20 @@ def mkELF64SectionHeaderTableEntry
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
 
 def mkELF64SectionHeaderTableEntry?
-  (isBigEndian : Bool) 
-  (bs : ByteArray) 
-  (offset : Nat) 
+  (isBigEndian : Bool)
+  (bs : ByteArray)
+  (offset : Nat)
   : Except String ELF64SectionHeaderTableEntry :=
-  if h : bs.size - offset ≥ 0x40 
+  if h : bs.size - offset ≥ 0x40
   then .ok $ mkELF64SectionHeaderTableEntry isBigEndian bs offset h
-  else .error $ 
-    s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires 0x28 bytes."
+  else .error $
+    s!"The section header table entry offset 0x{Hex.toHex offset}, doesn't leave enough space for the entry. " ++
+    s!"The entry requires 0x40 bytes, but the file ends at 0x{Hex.toHex bs.size}."
 
 def ELF64Header.mkELF64SectionHeaderTable?
   (eh : ELF64Header)
   (bytes : ByteArray)
-  : Except String (List ELF64SectionHeaderTableEntry) := 
+  : Except String (List ELF64SectionHeaderTableEntry) :=
   let isBigendian := ELFHeader.isBigendian eh
   let shoffsets := (List.range (ELFHeader.e_shnum eh)).map λidx ↦ ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * idx
   List.mapM (λoffset ↦ mkELF64SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
@@ -155,20 +156,20 @@ def mkELF32SectionHeaderTableEntry
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
 def mkELF32SectionHeaderTableEntry?
-  (isBigEndian : Bool) 
-  (bs : ByteArray) 
-  (offset : Nat) 
+  (isBigEndian : Bool)
+  (bs : ByteArray)
+  (offset : Nat)
   : Except String ELF32SectionHeaderTableEntry :=
   if h : bs.size - offset ≥ 0x28
   then .ok $ mkELF32SectionHeaderTableEntry isBigEndian bs offset h
-  else .error $ 
-    s!"Section header table entry offset {offset} doesn't leave enough space for the entry, " ++
-      "which requires 0x28 bytes."
+  else .error $
+    s!"The section header table entry offset {Hex.toHex offset}, doesn't leave enough space for the entry. " ++
+      "The entry requires 0x28 bytes, but the file ends at {Hex.toHex bs.size}."
 
 def ELF32Header.mkELF32SectionHeaderTable?
   (eh : ELF32Header)
   (bytes : ByteArray)
-  : Except String (List ELF32SectionHeaderTableEntry) := 
+  : Except String (List ELF32SectionHeaderTableEntry) :=
   let isBigendian := ELFHeader.isBigendian eh
   let shoffsets := (List.range (ELFHeader.e_shnum eh)).map λidx ↦ ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * idx
   List.mapM (λoffset ↦ mkELF32SectionHeaderTableEntry? isBigendian bytes offset) shoffsets
@@ -179,24 +180,24 @@ inductive RawSectionHeaderTableEntry :=
   deriving Repr
 
 instance : SectionHeaderTableEntry RawSectionHeaderTableEntry where
-  sh_name sh      := match sh with | .elf64 sh => sh.sh_name.toNat      | .elf32 sh => sh.sh_name.toNat     
-  sh_type sh      := match sh with | .elf64 sh => sh.sh_type.toNat      | .elf32 sh => sh.sh_type.toNat     
-  sh_flags sh     := match sh with | .elf64 sh => sh.sh_flags.toNat     | .elf32 sh => sh.sh_flags.toNat    
-  sh_addr sh      := match sh with | .elf64 sh => sh.sh_addr.toNat      | .elf32 sh => sh.sh_addr.toNat     
-  sh_offset sh    := match sh with | .elf64 sh => sh.sh_offset.toNat    | .elf32 sh => sh.sh_offset.toNat   
-  sh_size sh      := match sh with | .elf64 sh => sh.sh_size.toNat      | .elf32 sh => sh.sh_size.toNat     
-  sh_link sh      := match sh with | .elf64 sh => sh.sh_link.toNat      | .elf32 sh => sh.sh_link.toNat     
-  sh_info sh      := match sh with | .elf64 sh => sh.sh_info.toNat      | .elf32 sh => sh.sh_info.toNat     
+  sh_name sh      := match sh with | .elf64 sh => sh.sh_name.toNat      | .elf32 sh => sh.sh_name.toNat
+  sh_type sh      := match sh with | .elf64 sh => sh.sh_type.toNat      | .elf32 sh => sh.sh_type.toNat
+  sh_flags sh     := match sh with | .elf64 sh => sh.sh_flags.toNat     | .elf32 sh => sh.sh_flags.toNat
+  sh_addr sh      := match sh with | .elf64 sh => sh.sh_addr.toNat      | .elf32 sh => sh.sh_addr.toNat
+  sh_offset sh    := match sh with | .elf64 sh => sh.sh_offset.toNat    | .elf32 sh => sh.sh_offset.toNat
+  sh_size sh      := match sh with | .elf64 sh => sh.sh_size.toNat      | .elf32 sh => sh.sh_size.toNat
+  sh_link sh      := match sh with | .elf64 sh => sh.sh_link.toNat      | .elf32 sh => sh.sh_link.toNat
+  sh_info sh      := match sh with | .elf64 sh => sh.sh_info.toNat      | .elf32 sh => sh.sh_info.toNat
   sh_addralign sh := match sh with | .elf64 sh => sh.sh_addralign.toNat | .elf32 sh => sh.sh_addralign.toNat
-  sh_entsize sh   := match sh with | .elf64 sh => sh.sh_entsize.toNat   | .elf32 sh => sh.sh_entsize.toNat  
+  sh_entsize sh   := match sh with | .elf64 sh => sh.sh_entsize.toNat   | .elf32 sh => sh.sh_entsize.toNat
 
 def mkRawSectionHeaderTableEntry?
   (bs : ByteArray)
   (is64Bit : Bool)
   (isBigendian : Bool)
   (offset : Nat)
-  : Except String RawSectionHeaderTableEntry := 
-  if is64Bit 
+  : Except String RawSectionHeaderTableEntry :=
+  if is64Bit
   then .elf64 <$> mkELF64SectionHeaderTableEntry? isBigendian bs offset
   else .elf32 <$> mkELF32SectionHeaderTableEntry? isBigendian bs offset
 

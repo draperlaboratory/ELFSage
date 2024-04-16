@@ -11,14 +11,22 @@ def hexDumpCmd : Cmd := `[Cli|
       targetBinary : System.FilePath; "The ELF binary to be analyzed"
 ]
 
+def validateCmd: Cmd := `[Cli|
+  validate VIA runValidateCmd; ["0.0.0"]
+  "Check an ELF binary for structural problems"
+
+  ARGS:
+      targetBinary : System.FilePath; "The ELF binary to be analyzed"
+]
+
 /- Some major missing features:
 
-* DWARF debug information, CTF info 
-* string-dump/hex-dump don't take section names yet 
+* DWARF debug information, CTF info
+* string-dump/hex-dump don't take section names yet
 
 -/
 
-/-- an incomplete readelf clone inferface  -/
+/-- an incomplete readelf clone interface  -/
 def readCmd : Cmd := `[Cli|
   read VIA runReadCmd; ["0.0.0"]
   "Display information about the contents of ELF format files"
@@ -67,7 +75,8 @@ def mainCmd : Cmd := `[Cli|
 
   SUBCOMMANDS:
       hexDumpCmd;
-      readCmd
+      readCmd;
+      validateCmd
 ]
 
 def main (args: List String): IO UInt32 :=

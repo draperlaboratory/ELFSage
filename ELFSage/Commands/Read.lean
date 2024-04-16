@@ -120,8 +120,8 @@ def printDynamics (elffile : RawELFFile) :=
     let offset := idx * SectionHeaderTableEntry.sh_entsize shte
     match mkRawDynamicEntry?
       sec.section_body
-      (ELFHeader.is64Bit elffile.getRawELFHeader)
-      (ELFHeader.isBigendian elffile.getRawELFHeader)
+      (ELFHeader.is64Bit elffile)
+      (ELFHeader.isBigendian elffile)
       offset
     with
     | .error e => IO.println s!"warning: {e}"
@@ -209,7 +209,7 @@ private def printProgramHeaders (elffile : RawELFFile) := do
 private def printHeaders (elffile : RawELFFile) := do
   IO.println $ RawELFFile.headersToString elffile
 
-def runReadCmd (p: Cli.Parsed): IO UInt32 := do
+def runReadCmd (p : Cli.Parsed): IO UInt32 := do
 
   match checkImplemented p with
   | .error warn => IO.println warn *> return 1
