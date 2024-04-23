@@ -111,6 +111,30 @@ def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   | .none => IO.println s!"There doesn't appear to be a section header {idx}"
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
+-- st_value has different meanings depending on whether the ELF file is
+-- relocatable. in a binary, it's just the address of the symbol. In
+-- a relocatable file, it's an offset from the beginning of the relevant
+-- section.
+--
+-- Currently this is just set up for binaries
+def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) (bytes : ByteArray) :=
+  let symTab := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
+    SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
+  symTab.forM $ λ⟨shte, sec⟩ ↦ do
+    let offset := idx * SectionHeaderTableEntry.sh_entsize shte
+    match mkRawSymbolTableEntry?
+      sec.section_body
+      (ELFHeader.is64Bit elffile)
+      (ELFHeader.isBigendian elffile)
+      offset
+    with
+    | .error warn => IO.println warn
+    | .ok ste =>
+    dumpBytesAsHex $
+      bytes.extract
+        (SymbolTableEntry.st_value ste)
+        (SymbolTableEntry.st_value ste + SymbolTableEntry.st_size ste)
+
 def printDynamics (elffile : RawELFFile) :=
   let dynamics := elffile.getRawSectionHeaderTableEntries.filter $ λsec ↦
     SectionHeaderTableEntry.sh_type sec.fst == ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC
@@ -250,6 +274,9 @@ def runReadCmd (p : Cli.Parsed): IO UInt32 := do
     | "hex-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse section number provided for hex dump"
       | some idx => printHexForSectionIdx elffile idx
+    | "sym-dump" => match flag.as? Nat with
+      | none => IO.println "couldn't parse symbol number provided for hex dump"
+      | some idx => printHexForSymbolIdx elffile idx bytes
     | "notes" => printNoteSections elffile
     | "relocs" => printRelocationSections elffile
     | _ => IO.println $ "unrecognized flag: " ++ flag.flag.longName
