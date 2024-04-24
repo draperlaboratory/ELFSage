@@ -61,6 +61,8 @@ def readCmd : Cmd := `[Cli|
                                 "Dump the contents of section <number|name> as bytes"
     p,  "string-dump" : Nat;    "--string-dump=<number|name>. " ++
                                 "Dump the contents of section <number|name> as strings"
+    "sym-dump" : Nat;           "sym-dump=<number|name>. " ++
+                                "Dump the bytes designated by symbol <number|name>"
     R,  "relocated-dump";       "--relocated-dump=<number|name>" ++
                                 "Dump the relocated contents of section <number|name>"
     z,   "decompress";          "Decompress section before dumping it"

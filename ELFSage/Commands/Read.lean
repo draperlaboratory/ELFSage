@@ -111,29 +111,56 @@ def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   | .none => IO.println s!"There doesn't appear to be a section header {idx}"
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
--- st_value has different meanings depending on whether the ELF file is
--- relocatable. in a binary, it's just the address of the symbol. In
--- a relocatable file, it's an offset from the beginning of the relevant
--- section.
---
--- Currently this is just set up for binaries
-def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) (bytes : ByteArray) :=
+def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) :=
   let symTab := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
     SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
-  symTab.forM $ λ⟨shte, sec⟩ ↦ do
-    let offset := idx * SectionHeaderTableEntry.sh_entsize shte
+  symTab.forM $ λ⟨symshte, symsec⟩ ↦ do
+    let offset := idx * SectionHeaderTableEntry.sh_entsize symshte
     match mkRawSymbolTableEntry?
-      sec.section_body
+      symsec.section_body
       (ELFHeader.is64Bit elffile)
       (ELFHeader.isBigendian elffile)
       offset
     with
     | .error warn => IO.println warn
     | .ok ste =>
-    dumpBytesAsHex $
-      bytes.extract
-        (SymbolTableEntry.st_value ste)
-        (SymbolTableEntry.st_value ste + SymbolTableEntry.st_size ste)
+    let target_secidx := SymbolTableEntry.st_shndx ste
+    if target_secidx ∈ [0,0xfff1] then IO.println "special section, not implemented"
+    match elffile.getRawSectionHeaderTableEntries[target_secidx]? with
+    | .none => IO.println "The section that symbol points to doesn't exist!"
+    | .some ⟨_, target_sec⟩ =>
+    let valueCorrection :=
+      -- in executables, the symbol value means virtual address. In relocatable
+      -- files, it mean offset in the section.
+      match ELFHeader.e_type_val elffile with
+      | .et_exec => target_sec.section_addr
+      | _ => 0
+    let firstByte := SymbolTableEntry.st_value ste - valueCorrection
+    let lastByte ← if SymbolTableEntry.st_size ste = 0
+      then nextSymReference target_secidx symshte symsec target_sec valueCorrection firstByte
+      else pure $ firstByte + SymbolTableEntry.st_size ste
+    if lastByte > target_sec.section_body.size
+    then IO.println "the address calculated for this symbol doesn't correspond to anything in the binary"
+    else dumpBytesAsHex $ target_sec.section_body.extract firstByte lastByte
+  where nextSymReference target_secidx symshte symsec target_sec vc fb := do
+    let mut candidate := target_sec.section_size
+    for idx in [:SectionHeaderTableEntry.sh_size symshte / SectionHeaderTableEntry.sh_entsize symshte] do
+      let offset := idx * SectionHeaderTableEntry.sh_entsize symshte
+      match mkRawSymbolTableEntry?
+        symsec.section_body
+        (ELFHeader.is64Bit elffile)
+        (ELFHeader.isBigendian elffile)
+        offset
+      with
+      | .error _ => pure ()
+      | .ok ste =>
+      if SymbolTableEntry.st_shndx ste = target_secidx &&
+         SymbolTableEntry.st_value ste - vc < candidate &&
+         SymbolTableEntry.st_value ste - vc > fb
+      then candidate := SymbolTableEntry.st_value ste - vc
+      else candidate := candidate
+    return candidate
+
 
 def printDynamics (elffile : RawELFFile) :=
   let dynamics := elffile.getRawSectionHeaderTableEntries.filter $ λsec ↦
@@ -276,7 +303,7 @@ def runReadCmd (p : Cli.Parsed): IO UInt32 := do
       | some idx => printHexForSectionIdx elffile idx
     | "sym-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse symbol number provided for hex dump"
-      | some idx => printHexForSymbolIdx elffile idx bytes
+      | some idx => printHexForSymbolIdx elffile idx
     | "notes" => printNoteSections elffile
     | "relocs" => printRelocationSections elffile
     | _ => IO.println $ "unrecognized flag: " ++ flag.flag.longName
