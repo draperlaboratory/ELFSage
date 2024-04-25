@@ -142,6 +142,22 @@ def RawELFFile.getRawELFHeader : RawELFFile → RawELFHeader
   | .elf32 elffile => .elf32 elffile.file_header
   | .elf64 elffile => .elf64 elffile.file_header
 
+/--
+Get the section of type SHT_SYMTAB.
+There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
+-/
+def RawELFFile.getSymbolTable? (elffile : RawELFFile) : Option (RawSectionHeaderTableEntry × InterpretedSection) := symbolSections[0]?
+  where symbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
+      SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
+
+/--
+Get the section of type SHT_DYNSYM
+There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
+-/
+def RawELFFile.getDynamicSymbolTable? (elffile : RawELFFile) : Option (RawSectionHeaderTableEntry × InterpretedSection) := dynamicSymbolSections[0]?
+  where dynamicSymbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
+      SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_DYNSYM
+
 instance : ELFHeader RawELFFile where
   e_ident ef      := ELFHeader.e_ident ef.getRawELFHeader
   e_type ef       := ELFHeader.e_type ef.getRawELFHeader

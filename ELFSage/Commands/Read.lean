@@ -112,9 +112,9 @@ def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
 def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) :=
-  let symTab := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
-    SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
-  symTab.forM $ λ⟨symshte, symsec⟩ ↦ do
+  match elffile.getSymbolTable? with
+  | .none => IO.println "No symbol table present"
+  | .some ⟨symshte, symsec⟩ => do
     let offset := idx * SectionHeaderTableEntry.sh_entsize symshte
     match mkRawSymbolTableEntry?
       symsec.section_body

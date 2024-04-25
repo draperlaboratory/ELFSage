@@ -100,25 +100,25 @@ inductive RawSymbolTableEntry :=
   deriving Repr
 
 instance : SymbolTableEntry RawSymbolTableEntry where
-  st_name ste  := match ste with | .elf64 ste => ste.st_name.toNat  | .elf32 ste => ste.st_name.toNat 
-  st_info ste  := match ste with | .elf64 ste => ste.st_info.toNat  | .elf32 ste => ste.st_info.toNat 
+  st_name ste  := match ste with | .elf64 ste => ste.st_name.toNat  | .elf32 ste => ste.st_name.toNat
+  st_info ste  := match ste with | .elf64 ste => ste.st_info.toNat  | .elf32 ste => ste.st_info.toNat
   st_other ste := match ste with | .elf64 ste => ste.st_other.toNat | .elf32 ste => ste.st_other.toNat
   st_shndx ste := match ste with | .elf64 ste => ste.st_shndx.toNat | .elf32 ste => ste.st_shndx.toNat
   st_value ste := match ste with | .elf64 ste => ste.st_value.toNat | .elf32 ste => ste.st_value.toNat
-  st_size ste  := match ste with | .elf64 ste => ste.st_size.toNat  | .elf32 ste => ste.st_size.toNat 
+  st_size ste  := match ste with | .elf64 ste => ste.st_size.toNat  | .elf32 ste => ste.st_size.toNat
 
 def mkRawSymbolTableEntry?
   (bs : ByteArray)
   (is64Bit : Bool)
   (isBigendian : Bool)
   (offset : Nat)
-  : Except String RawSymbolTableEntry := 
+  : Except String RawSymbolTableEntry :=
   match is64Bit with
-  | true   => 
+  | true   =>
     if h : bs.size - offset ≥ 0x18
     then pure (.elf64 $ mkELF64SymbolTableEntry isBigendian bs offset h)
     else throw $ err 0x18
-  | false  => 
+  | false  =>
     if h : bs.size - offset ≥ 0xd
     then pure (.elf32 $ mkELF32SymbolTableEntry isBigendian bs offset h)
     else throw $ err 0xd
