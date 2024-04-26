@@ -146,17 +146,22 @@ def RawELFFile.getRawELFHeader : RawELFFile → RawELFHeader
 Get the section of type SHT_SYMTAB.
 There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
 -/
-def RawELFFile.getSymbolTable? (elffile : RawELFFile) : Option (RawSectionHeaderTableEntry × InterpretedSection) := symbolSections[0]?
-  where symbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
-      SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
-
+def RawELFFile.getSymbolTable? (elffile : RawELFFile)
+    : Except String (RawSectionHeaderTableEntry × InterpretedSection) :=
+    symbolSections[0]?.elim noSymTable .ok
+  where noSymTable := .error "No symbol table present, no st_size given, can't guess byte range"
+        symbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
+          SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
 /--
 Get the section of type SHT_DYNSYM
 There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
 -/
-def RawELFFile.getDynamicSymbolTable? (elffile : RawELFFile) : Option (RawSectionHeaderTableEntry × InterpretedSection) := dynamicSymbolSections[0]?
-  where dynamicSymbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
-      SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_DYNSYM
+def RawELFFile.getDynamicSymbolTable? (elffile : RawELFFile)
+    : Except String (RawSectionHeaderTableEntry × InterpretedSection) :=
+    dynamicSymbolSections[0]?.elim noSymTable .ok
+  where noSymTable := .error "No symbol table present, no st_size given, can't guess byte range"
+        dynamicSymbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
+          SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_DYNSYM
 
 instance : ELFHeader RawELFFile where
   e_ident ef      := ELFHeader.e_ident ef.getRawELFHeader

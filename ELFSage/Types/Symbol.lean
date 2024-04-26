@@ -27,48 +27,63 @@ instance : SymbolTableEntry InterpretedSymbolTableEntry where
   st_value ste := ste.st_value
   st_size ste  := ste.st_size
 
+/-- Given a symbol table entry, this finds the index and interpreted section
+    corresponding to the section in which the symbol body occurs -/
+def SymbolTableEntry.getTarget? [SymbolTableEntry α] (ste : α) (elffile : RawELFFile) : Except String (Nat × InterpretedSection) := do
+    let target_secidx := SymbolTableEntry.st_shndx ste
+    if target_secidx ∈ [0,0xfff1] then errSpecialSection
+    let ⟨_, target_sec⟩ ← elffile.getRawSectionHeaderTableEntries[target_secidx]?.elim errNoSection Except.ok
+    .ok ⟨target_secidx, target_sec⟩
+    where errNoSection := .error "The section that symbol points to doesn't exist!"
+          errSpecialSection := .error "special section, not implemented"
+
+/-- A symbol's st_value field can mean either an offset in a section, in
+a relocatable file, or an intended virtual address in memory, in an executable.
+This computes the section offset for a symbol -/
+def SymbolTableEntry.getSectionOffset?  [SymbolTableEntry α] (ste : α) (elffile : RawELFFile) : Except String Nat := do
+  match ELFHeader.e_type_val elffile with
+  | .et_exec => do
+    let ⟨_, target_sec⟩ ← SymbolTableEntry.getTarget? ste elffile
+    return SymbolTableEntry.st_value ste - target_sec.section_addr
+  | _ => return SymbolTableEntry.st_value ste
+
+/-- Given a symbol table entry, this finds the offset of the next symbol in the
+same section, or the end of the section -/
+def SymbolTableEntry.nextSymbolOffset?
+  [SymbolTableEntry α]
+  (ste : α)
+  (elffile : RawELFFile)
+  : Except String Nat := do
+  let ⟨target_secidx, target_sec⟩ ← SymbolTableEntry.getTarget? ste elffile
+  let ⟨symshte, symsec⟩ ← elffile.getSymbolTable?
+  let firstByte ← SymbolTableEntry.getSectionOffset? ste elffile
+  let mut candidate := target_sec.section_size
+  for idx in [:SectionHeaderTableEntry.sh_size symshte / SectionHeaderTableEntry.sh_entsize symshte] do
+    match mkRawSymbolTableEntry?
+      symsec.section_body
+      (ELFHeader.is64Bit elffile)
+      (ELFHeader.isBigendian elffile)
+      (idx * SectionHeaderTableEntry.sh_entsize symshte)
+    with
+    | .error _ => pure ()
+    | .ok otherste =>
+    if SymbolTableEntry.st_shndx otherste ≠ target_secidx then continue
+    let sectionOffset ← SymbolTableEntry.getSectionOffset? otherste elffile
+    if sectionOffset < candidate && sectionOffset > firstByte
+    then candidate := sectionOffset
+    else candidate := candidate
+  return candidate
+
 def SymbolTableEntry.toBody?
   [SymbolTableEntry α]
   (ste : α)
   (elffile : RawELFFile)
   : Except String ByteArray := do
-  let target_secidx := SymbolTableEntry.st_shndx ste
-  if target_secidx ∈ [0,0xfff1]
-  then .error "special section, not implemented"
-  else match elffile.getRawSectionHeaderTableEntries[target_secidx]? with
-    | .none => .error "The section that symbol points to doesn't exist!"
-    | .some ⟨_, target_sec⟩ => do
-    let valueCorrection :=
-      -- in executables, the symbol value means virtual address. In relocatable
-      -- files, it mean offset in the section.
-      match ELFHeader.e_type_val elffile with
-      | .et_exec => target_sec.section_addr
-      | _ => 0
-    let firstByte := SymbolTableEntry.st_value ste - valueCorrection
-    let lastByte ← if SymbolTableEntry.st_size ste = 0
-      then nextSymReference target_secidx target_sec valueCorrection firstByte
-      else pure $ firstByte + SymbolTableEntry.st_size ste
-    if lastByte > target_sec.section_body.size
-    then .error "the address calculated for this symbol doesn't correspond to anything in the binary"
-    else .ok $ target_sec.section_body.extract firstByte lastByte
-  where nextSymReference target_secidx target_sec vc fb := do
-    match elffile.getSymbolTable? with
-    | .none => .error "No symbol table present, no st_size given, can't guess byte range"
-    | .some ⟨symshte, symsec⟩ => do
-    let mut candidate := target_sec.section_size
-    for idx in [:SectionHeaderTableEntry.sh_size symshte / SectionHeaderTableEntry.sh_entsize symshte] do
-      let offset := idx * SectionHeaderTableEntry.sh_entsize symshte
-      match mkRawSymbolTableEntry?
-        symsec.section_body
-        (ELFHeader.is64Bit elffile)
-        (ELFHeader.isBigendian elffile)
-        offset
-      with
-      | .error _ => pure ()
-      | .ok ste =>
-      if SymbolTableEntry.st_shndx ste = target_secidx &&
-         SymbolTableEntry.st_value ste - vc < candidate &&
-         SymbolTableEntry.st_value ste - vc > fb
-      then candidate := SymbolTableEntry.st_value ste - vc
-      else candidate := candidate
-    return candidate
+  let ⟨_, target_sec⟩ ← SymbolTableEntry.getTarget? ste elffile
+  let firstByte ← SymbolTableEntry.getSectionOffset? ste elffile
+  let lastByte ← if SymbolTableEntry.st_size ste = 0
+    then SymbolTableEntry.nextSymbolOffset? ste elffile
+    else pure $ firstByte + SymbolTableEntry.st_size ste
+  if lastByte > target_sec.section_body.size
+  then .error "the address calculated for this symbol doesn't correspond to anything in the binary"
+  else .ok $ target_sec.section_body.extract firstByte lastByte
