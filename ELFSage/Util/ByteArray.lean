@@ -260,6 +260,7 @@ theorem UInt16_to_UInt8_round: ∀{i : UInt16}, i.toUInt8.toUInt16 = i % 256:= b
   have : ↑i % 256 < 256 := @Nat.mod_lt ↑i 256 (by omega)
   omega
 
+
 theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitwise or m k = m + k := by
   intro n
   induction n
@@ -320,6 +321,97 @@ theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitw
               have : Dvd.dvd 2 k := (Nat.dvd_iff_mod_eq_zero 2 k).mpr lhs
               rw [Nat.mul_comm, Nat.div_mul_cancel this]
 
+theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
+  intro i
+
+  simp [
+    HShiftRight.hShiftRight,
+    ShiftRight.shiftRight,
+    shiftRight,
+    Fin.shiftRight,
+    Nat.shiftRight,
+  ]
+
+  cases i; rename_i val
+
+  unfold size at *
+
+  apply UInt16.eq_of_val_eq; simp_arith
+
+  cases val; rename_i val lt
+
+  apply Fin.eq_of_val_eq; simp_arith
+
+  apply Nat.mod_eq_of_lt
+  assumption
+
+theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (((i >>> 0x8) % 256) <<< 0x8 ) ||| i % 256 := by
+  intro i
+  simp [
+    HShiftRight.hShiftRight,
+    ShiftRight.shiftRight,
+    shiftRight,
+    Fin.shiftRight,
+    Nat.shiftRight,
+
+    HShiftLeft.hShiftLeft,
+    ShiftLeft.shiftLeft,
+    shiftLeft,
+    Fin.shiftLeft,
+    Nat.shiftLeft,
+
+    HMod.hMod,
+    Mod.mod,
+    mod,
+    Fin.mod,
+    Fin.div,
+
+    HOr.hOr,
+    OrOp.or,
+    lor,
+    Fin.lor,
+    Nat.lor,
+  ]
+
+  cases i; rename_i val
+
+  unfold size at *
+
+  apply UInt16.eq_of_val_eq; simp_arith
+
+  cases val; rename_i val lt
+
+  apply Fin.eq_of_val_eq; simp_arith
+
+  simp [
+    Nat.div_div_eq_div_mul,
+    show Nat.mod 256 65536 = 256 by decide,
+    show Nat.mod (val / 256) 65536 = val / 256 by
+      apply Nat.mod_eq_of_lt; omega,
+    show (2 * (2 * (2 * (2 * (2 * (2 * (2 * (2 * Nat.mod (val / 256) 256)))))))) =
+      (256 * Nat.mod (val / 256) 256) by simp_arith
+  ]
+
+  suffices val = (Nat.bitwise or ((256 * ((val / 256) % 256)) % 65536) (val % 256)) % 65536 by
+    exact this
+
+  rw [show Nat.bitwise or ((256 * ((val / 256) % 256)) % 65536) (val % 256)
+         = ((256 * ((val / 256) % 256)) % 65536) + (val % 256) by
+      apply Nat.bitwise_sum (n := 8)
+      · simp_arith
+      · apply Nat.mod_lt; decide
+     ]
+
+  rw [show val / 256 % 256 = val / 256 by apply Nat.mod_eq_of_lt; omega]
+
+  rw [show 256 * (val / 256) % 65536 = 256 * (val / 256) by apply Nat.mod_eq_of_lt; omega]
+
+  rw [Nat.add_comm, Nat.mod_add_div]
+
+  apply Eq.symm
+  apply Nat.mod_eq_of_lt
+  assumption
+
 theorem UInt16.ByteArray_roundtrip :
   ∀ i : UInt16, ∀l, i.getBytesBEfrom.getUInt16BEfrom 0 l = i := by
   intro i l
@@ -330,60 +422,7 @@ theorem UInt16.ByteArray_roundtrip :
     Array.get,
     List.get,
   ]
-  rw [UInt16_to_UInt8_round, UInt16_to_UInt8_round]
+  rw [UInt16_to_UInt8_round, UInt16_to_UInt8_round, UInt16.nullShift]
 
-  simp [HOr.hOr, OrOp.or, lor, Fin.lor, Nat.lor]
-
-  cases i; rename_i i; apply UInt16.eq_of_val_eq; simp
-
-  cases i; rename_i i h; apply Fin.eq_of_val_eq; simp
-
-  simp [
-    HShiftRight.hShiftRight,
-    ShiftRight.shiftRight,
-    shiftRight,
-    Fin.shiftRight,
-    Nat.shiftRight,
-    HMod.hMod,
-    Mod.mod,
-    mod,
-    Fin.mod,
-  ]
-
-  simp [
-    show Nat.mod i size = i from Nat.mod_eq_of_lt h,
-    Nat.div_div_eq_div_mul,
-  ]
-
-  simp [
-    HShiftLeft.hShiftLeft,
-    ShiftLeft.shiftLeft,
-    shiftLeft,
-    Fin.shiftLeft,
-    Nat.shiftLeft
-  ]
-
-  simp [
-    show Nat.mod (Nat.mod (i / 256) size) 256 = Nat.mod (i / 256) 256 by
-      apply Nat.mod_mod_of_dvd
-      simp_arith,
-    show (2 * (2 * (2 * (2 * (2 * (2 * (2 * (2 * (i / 256))))))))
-      = 256 * (i / 256)) by simp_arith,
-    show Nat.mod (i / 256) 256 = i / 256 by
-      apply Nat.mod_eq_of_lt
-      apply Nat.div_lt_of_lt_mul
-      exact h
-  ]
-
-  have : Nat.mod (i / 256) 256 < 256 := Nat.mod_lt (i / 256) (by omega)
-  have : 256 * (i / 256) < size := by omega
-  have : 256 * (i / 256) % size = 256 * (i / 256) := Nat.mod_eq_of_lt this
-  rw [this]
-
-  have l₁ : ((2^8) * (i / 256)) % (2^8) = 0 := Nat.mul_mod_right (2^8) (i / 256)
-  have l₂ : Nat.mod i (2^8) < (2^8) := Nat.mod_lt i (by decide)
-  simp [Nat.bitwise_sum l₁ l₂]
-  have l₃ : Nat.mod i 256 + 256 * (i / 256) = i := Nat.mod_add_div i 256
-  rw [Nat.add_comm, l₃]
-  have l₄ : Nat.mod i size = i := Nat.mod_eq_of_lt h
-  assumption
+  apply Eq.symm
+  apply UInt16.shiftUnshift i
