@@ -77,7 +77,7 @@ def mkELF32File? (bytes : ByteArray) : Except String ELF32File := do
 
   let interpreted_segments ← getInterpretedSegments program_header_table bytes
 
-  let interpreted_sections ← getInterpretedSections section_header_table file_header bytes
+  let interpreted_sections ← SectionHeaderTableEntry.getInterpretedSections section_header_table file_header bytes
 
   let bits_and_bobs := getBitsAndBobs file_header section_header_table program_header_table bytes
 
@@ -108,7 +108,7 @@ def mkELF64File? (bytes : ByteArray) : Except String ELF64File := do
 
   let interpreted_segments ← getInterpretedSegments program_header_table bytes
 
-  let interpreted_sections ← getInterpretedSections section_header_table file_header bytes
+  let interpreted_sections ← SectionHeaderTableEntry.getInterpretedSections section_header_table file_header bytes
 
   let bits_and_bobs := getBitsAndBobs file_header section_header_table program_header_table bytes
 

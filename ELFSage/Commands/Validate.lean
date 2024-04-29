@@ -159,6 +159,10 @@ def runValidateCmd (p : Cli.Parsed) : IO UInt32 := do
     | .error s => IO.println s!"Program Header Table Entry {idx}: {s}"
     | .ok phte =>
 
+    match ProgramHeaderTableEntry.checkAlignment phte with
+    | .error s => IO.println s
+    | .ok _ => pure ()
+
     match ProgramHeaderTableEntry.toSegment? phte bytes with
     | .error s => IO.println s!"Segment Associated with Program Header Table Entry {idx}: {s}"
     | .ok _ => pure ()
@@ -174,6 +178,10 @@ def runValidateCmd (p : Cli.Parsed) : IO UInt32 := do
     match SectionHeaderTableEntry.toSection? shte bytes (tryName idx)  with
     | .error s => IO.println s!"Section Associated with Section Header Table Entry {idx}: {s}"
     | .ok sec =>
+
+    match SectionHeaderTableEntry.checkAlignment shte with
+    | .error s => IO.println s
+    | .ok _ =>
 
     if SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_NOTE
     then printNotesErrs elfheader shte sec idx

@@ -1,6 +1,7 @@
 import ELFSage.Types.Sizes
 import ELFSage.Util.ByteArray
 import ELFSage.Types.ELFHeader
+import ELFSage.Util.Hex
 
 class ProgramHeaderTableEntry (α : Type) where
   /-- Type of the segment -/
@@ -48,6 +49,23 @@ instance : ProgramHeaderTableEntry ELF64ProgramHeaderTableEntry where
   p_filesz ph := ph.p_filesz.toNat
   p_memsz ph  := ph.p_memsz.toNat
   p_align ph  := ph.p_align.toNat
+
+-- Alignment requirements from man 5 elf
+-- For now, we assumpe 4K as page size. For future reference:
+-- https://stackoverflow.com/questions/3351940/detecting-the-memory-page-size
+def ProgramHeaderTableEntry.checkAlignment
+  [ProgramHeaderTableEntry α]
+  (ph : α)
+  : Except String Unit := do
+  if p_type ph == PT_LOAD ∧ p_vaddr ph % 0x1000 != p_offset ph % 0x1000 then .error $
+    s! "Misaligned loadable segment: p_vaddr={Hex.toHex $ p_vaddr ph} and " ++
+    s! "p_offset={Hex.toHex $ p_offset ph} are not aligned modulo the page size 0x1000"
+  if p_align ph < 2 then return ()
+  if p_vaddr ph % p_align ph != p_offset ph % p_align ph then .error $
+      s! "Misaligned segment: p_offset is {Hex.toHex $ p_offset ph}, " ++
+      s! "and p_vaddr is {Hex.toHex $ p_vaddr ph}. These are required to be " ++
+      s! "congruent mod p_align={Hex.toHex $ p_align ph}."
+  where PT_LOAD := 1 -- TODO: replace me with a constant
 
 def mkELF64ProgramHeaderTableEntry
   (isBigEndian : Bool)

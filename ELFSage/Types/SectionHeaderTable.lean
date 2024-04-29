@@ -1,4 +1,5 @@
 import ELFSage.Types.Sizes
+import ELFSage.Types.StringTable
 import ELFSage.Util.ByteArray
 import ELFSage.Types.ELFHeader
 import ELFSage.Util.Hex
@@ -24,6 +25,31 @@ class SectionHeaderTableEntry (α : Type) where
   sh_addralign : α → Nat
   /-- Size of each entry in table, if section is composed of entries. Otherwise zero. -/
   sh_entsize   : α → Nat
+
+def SectionHeaderTableEntry.getSectionNames
+  (shstrndx : Nat)
+  [SectionHeaderTableEntry α] (sht : List α)
+  (bytes : ByteArray)
+  : Except String ELFStringTable := if h : shstrndx ≥ sht.length
+    then .error "the shstrndx from the elf header requests a non-existent section"
+    else
+      let shstr_start := sh_offset sht[shstrndx]
+      let shstr_end := shstr_start + sh_size sht[shstrndx]
+      if shstr_end > bytes.size
+      then .error "the section header string table runs off the end of the binary"
+      else .ok ⟨bytes.extract shstr_start shstr_end⟩
+
+-- Alignment requirments from man 5 elf
+def SectionHeaderTableEntry.checkAlignment
+  [SectionHeaderTableEntry α] (sh : α)
+  : Except String Unit :=
+  if sh_addralign sh < 2 then pure ()
+  else do
+    if sh_addralign sh % 2 != 0 then .error $
+      s! "Corrupted sh_addralign: value is {Hex.toHex $ sh_addralign sh}, which is not a power of 2"
+    if sh_addr sh % sh_addralign sh != 0 then .error $
+      s! "Misaligned section: sh_addr is {Hex.toHex $ sh_addr sh}, " ++
+      s! "but sh_addralign is {Hex.toHex $ sh_addralign sh}."
 
 structure ELF64SectionHeaderTableEntry where
   /-- Name of the section -/

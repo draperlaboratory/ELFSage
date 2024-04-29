@@ -1,6 +1,5 @@
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Constants.SectionHeaderTable
-import ELFSage.Types.StringTable
 
 structure InterpretedSection where
   /-- Name of the section -/
@@ -28,6 +27,18 @@ structure InterpretedSection where
   /-- Name of the section, as a string, if the section has one -/
   section_name_as_string : Option String
   deriving Repr
+
+instance : SectionHeaderTableEntry InterpretedSection where
+  sh_name sh      := sh.section_name
+  sh_type sh      := sh.section_type
+  sh_flags sh     := sh.section_flags
+  sh_addr sh      := sh.section_addr
+  sh_offset sh    := sh.section_offset
+  sh_size sh      := sh.section_size
+  sh_link sh      := sh.section_link
+  sh_info sh      := sh.section_info
+  sh_addralign sh := sh.section_align
+  sh_entsize sh   := sh.section_entsize
 
 def SectionHeaderTableEntry.toSection?
   [SectionHeaderTableEntry α]
@@ -58,20 +69,7 @@ def SectionHeaderTableEntry.toSection?
     section_name_as_string := name
   }
 
-def getSectionNames
-  (shstrndx : Nat)
-  [SectionHeaderTableEntry α] (sht : List α)
-  (bytes : ByteArray)
-  : Except String ELFStringTable := if h : shstrndx ≥ sht.length
-    then .error "the shstrndx from the elf header requests a non-existent section"
-    else
-      let shstr_start := SectionHeaderTableEntry.sh_offset sht[shstrndx]
-      let shstr_end := shstr_start + SectionHeaderTableEntry.sh_size sht[shstrndx]
-      if shstr_end > bytes.size
-      then .error "the section header string table runs off the end of the binary"
-      else .ok ⟨bytes.extract shstr_start shstr_end⟩
-
-def getInterpretedSections
+def SectionHeaderTableEntry.getInterpretedSections
   [SectionHeaderTableEntry α] (sht : List α)
   [ELFHeader β] (eh : β)
   (bytes : ByteArray)
