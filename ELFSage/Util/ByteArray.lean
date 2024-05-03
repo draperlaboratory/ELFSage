@@ -44,7 +44,6 @@ def UInt16.getBytesBEfrom (i : UInt16) : ByteArray :=
     , (i >>> 0x0).toUInt8
     ]⟩
 
-
 --LittleEndian
 
 def ByteArray.getUInt64LEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 :=
@@ -159,6 +158,7 @@ instance : Repr ByteArray where
  ∀{a: ByteArray}, ByteArray.empty ++ a = a
 
  It would also be good to improve NByteArray extract to take an offset in addition to a length
+
 -/
 
 theorem Array.extract_len_aux {src: Array α} :
@@ -167,8 +167,7 @@ theorem Array.extract_len_aux {src: Array α} :
    intro b
    induction b
    case zero => simp [Array.extract.loop]
-   case succ =>
-     rename_i n ih
+   case succ n ih =>
      intro l dst
      unfold Array.extract.loop
      intro lt
@@ -232,14 +231,11 @@ theorem UInt8.val_eq_of_eq : ∀{i j : UInt8}, i = j → i.val = j.val
   | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
 
 theorem UInt8_to_UInt16_round: ∀{i : UInt8}, i.toUInt16.toUInt8 = i := by
-  intro i
-  cases i
-  rename_i i
+  rintro ⟨i⟩
   simp [UInt16.toUInt8, Nat.toUInt8, UInt8.ofNat]
   apply UInt8.eq_of_val_eq
   simp
-  cases i
-  rename_i val lt
+  rcases i with ⟨val, lt⟩
   apply Fin.eq_of_val_eq
   simp [Fin.ofNat, UInt16.toNat, UInt8.toUInt16, Nat.toUInt16, UInt16.ofNat, UInt8.toNat]
   unfold UInt8.size at lt
@@ -248,12 +244,8 @@ theorem UInt8_to_UInt16_round: ∀{i : UInt8}, i.toUInt16.toUInt8 = i := by
   exact lt
 
 theorem UInt16_to_UInt8_round: ∀{i : UInt16}, i.toUInt8.toUInt16 = i % 256:= by
-  intro i
-  cases i
-  rename_i i
-  simp [UInt8.toUInt16, Nat.toUInt16, UInt16.ofNat]
-  unfold HMod.hMod
-  simp [instHMod, Mod.mod, UInt16.mod]
+  rintro ⟨i⟩
+  simp [UInt8.toUInt16, Nat.toUInt16, UInt16.ofNat, HMod.hMod, instHMod, Mod.mod, UInt16.mod]
   apply UInt16.eq_of_val_eq
   simp [Fin.ofNat, UInt8.toNat, UInt16.toUInt8, Nat.toUInt8, UInt8.ofNat, UInt8.toNat, UInt16.toNat, Fin.mod]
   apply Nat.mod_eq_of_lt
@@ -267,36 +259,27 @@ theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitw
   case zero =>
     intro m k _ h₂
     simp_arith at *
-    rw [h₂]
-    simp [Nat.bitwise]
-    intro h₃
-    apply Eq.symm
-    assumption
+    simp_all [h₂, Nat.bitwise]
   case succ n ih =>
     intro m k h₁ h₂
     have l₀ := (Nat.dvd_iff_mod_eq_zero (2 ^ Nat.succ n) m).mpr h₁
     have l₁ : Dvd.dvd 2 m := by
       refine Nat.dvd_of_pow_dvd ?_ l₀
       simp_arith
-    have l₂ : m % 2 = 0 := by
-      apply Nat.mod_eq_zero_of_dvd
-      assumption
+    have l₂ : m % 2 = 0 := Nat.mod_eq_zero_of_dvd l₁
     have l₃ : (m / 2) % 2 ^ n = 0 := by
       apply (Nat.dvd_iff_mod_eq_zero (2 ^ n) (m / 2)).mp
       apply Nat.dvd_of_mul_dvd_mul_right (k := 2) (by decide)
-      rw [Nat.div_mul_cancel l₁]
-      rw [←Nat.pow_succ]
-      assumption
+      simp_all [Nat.div_mul_cancel l₁, ←Nat.pow_succ]
     have l₄ : (k /2) < 2 ^ n := by
       simp [Nat.pow_succ] at h₂
       apply Nat.div_lt_of_lt_mul
-      rw [Nat.mul_comm]
-      assumption
+      simp_all [Nat.mul_comm]
     unfold Nat.bitwise
     split <;> simp_arith
-    . apply Eq.symm; assumption
+    . simp_all
     . split
-      . simp_arith; apply Eq.symm; assumption
+      . simp_all
       . split
         case inr.inr.inl h₃ h₄ h₅ =>
           cases h₅
@@ -306,123 +289,205 @@ theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitw
             simp_arith [ih]
             rw [Nat.mul_comm, Nat.div_mul_cancel l₁]
             simp_arith
-            conv =>
-              rhs
-              rw [←Nat.mod_add_div k 2]
+            conv => rhs; rw [←Nat.mod_add_div k 2]
             simp_arith [h₅]
         case inr.inr.inr h₃ h₄ h₅ =>
-            have ih := ih l₃ l₄
-            rw [ih]
-            simp_arith
-            rw [Nat.mul_comm, Nat.div_mul_cancel l₁]
-            cases (Nat.mod_two_eq_zero_or_one k)
-            case inr rhs => have c : m % 2 = 1 ∨ k % 2 = 1 := Or.inr rhs; contradiction
-            case inl lhs =>
-              have : Dvd.dvd 2 k := (Nat.dvd_iff_mod_eq_zero 2 k).mpr lhs
-              rw [Nat.mul_comm, Nat.div_mul_cancel this]
+          have ih := ih l₃ l₄
+          simp_arith [ih]
+          rw [Nat.mul_comm, Nat.div_mul_cancel l₁]
+          cases (Nat.mod_two_eq_zero_or_one k)
+          case inr rhs => exfalso; apply h₅; exact Or.inr rhs
+          case inl lhs =>
+            have : Dvd.dvd 2 k := (Nat.dvd_iff_mod_eq_zero 2 k).mpr lhs
+            rw [Nat.mul_comm, Nat.div_mul_cancel this]
 
-theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
-  intro i
 
+/--
+  OK, so the idea for doing these proofs more systematically would be to prove that
+
+  i = ((i >>> 0x8) <<< 0x8 ) ||| i % 256
+
+  for nat, then use this repeatedly (substituting for i >>> 0x8, i >>> 0x10) to get something like
+
+  i = (((((i >>> 0x8) >>> 0x8) <<< 0x8 ) ||| (i >>> 0x8) % 256) <<< 0x8) ||| i % 256
+    = (((i >>> 0x10) <<< 0x8 ) ||| (i >>> 0x8) % 256) <<< 0x8 ||| i % 256             --consolidate
+    = (((i >>> 0x10) <<< 0x8 ) << 0x8) ||| ((i >>> 0x8) % 256) <<< 0x8 ||| i % 256    --distribute
+    = (((i >>> 0x10) <<< 0x10) ||| ((i >>> 0x8) % 256) <<< 0x8 ||| i % 256            --consolidate
+    ... and so on
+
+  and then use these to prove the corresponding UInt facts
+
+-/
+
+macro "lower_to_nat" i:Lean.Parser.Tactic.casesTarget: tactic => `(tactic|
   simp [
     HShiftRight.hShiftRight,
     ShiftRight.shiftRight,
-    shiftRight,
+    UInt16.shiftRight,
     Fin.shiftRight,
-    Nat.shiftRight,
-  ]
-
-  cases i; rename_i val
-
-  unfold size at *
-
-  apply UInt16.eq_of_val_eq; simp_arith
-
-  cases val; rename_i val lt
-
-  apply Fin.eq_of_val_eq; simp_arith
-
-  apply Nat.mod_eq_of_lt
-  assumption
-
-theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (((i >>> 0x8) % 256) <<< 0x8 ) ||| i % 256 := by
-  intro i
-  simp [
-    HShiftRight.hShiftRight,
-    ShiftRight.shiftRight,
-    shiftRight,
-    Fin.shiftRight,
-    Nat.shiftRight,
 
     HShiftLeft.hShiftLeft,
     ShiftLeft.shiftLeft,
-    shiftLeft,
+    UInt16.shiftLeft,
     Fin.shiftLeft,
-    Nat.shiftLeft,
 
     HMod.hMod,
     Mod.mod,
-    mod,
+    UInt16.mod,
+    UInt16.modn,
     Fin.mod,
     Fin.div,
+    show (8 : UInt16).val = 8 by decide,
+    show (8 : Fin (2^8)).val = 8 by decide,
+    show Nat.mod 8 16 = 8 by decide,
+    show Nat.mod 256 65536 = 256 by decide,
 
     HOr.hOr,
     OrOp.or,
-    lor,
+    UInt16.lor,
     Fin.lor,
     Nat.lor,
   ]
+  <;> rcases $i with ⟨val⟩
+  <;> apply UInt16.eq_of_val_eq
+  <;> simp_arith
+  <;> rcases val with ⟨val, lt_val⟩
+  <;> apply Fin.eq_of_val_eq
+  <;> simp_arith
 
-  cases i; rename_i val
+)
 
-  unfold size at *
-
-  apply UInt16.eq_of_val_eq; simp_arith
-
-  cases val; rename_i val lt
-
-  apply Fin.eq_of_val_eq; simp_arith
-
-  simp [
-    Nat.div_div_eq_div_mul,
-    show Nat.mod 256 65536 = 256 by decide,
-    show Nat.mod (val / 256) 65536 = val / 256 by
-      apply Nat.mod_eq_of_lt; omega,
-    show (2 * (2 * (2 * (2 * (2 * (2 * (2 * (2 * Nat.mod (val / 256) 256)))))))) =
-      (256 * Nat.mod (val / 256) 256) by simp_arith
-  ]
-
-  suffices val = (Nat.bitwise or ((256 * ((val / 256) % 256)) % 65536) (val % 256)) % 65536 by
-    exact this
-
-  rw [show Nat.bitwise or ((256 * ((val / 256) % 256)) % 65536) (val % 256)
-         = ((256 * ((val / 256) % 256)) % 65536) + (val % 256) by
-      apply Nat.bitwise_sum (n := 8)
-      · simp_arith
-      · apply Nat.mod_lt; decide
-     ]
-
-  rw [show val / 256 % 256 = val / 256 by apply Nat.mod_eq_of_lt; omega]
-
-  rw [show 256 * (val / 256) % 65536 = 256 * (val / 256) by apply Nat.mod_eq_of_lt; omega]
-
-  rw [Nat.add_comm, Nat.mod_add_div]
-
-  apply Eq.symm
+theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
+  intro i
+  lower_to_nat i
   apply Nat.mod_eq_of_lt
   assumption
+
+@[simp]
+theorem Nat.bitwise_zero_left : bitwise f 0 m = if f false true then m else 0 :=
+  rfl
+
+@[simp]
+theorem Nat.bitwise_zero_right : bitwise f n 0 = if f true false then n else 0 := by
+  unfold bitwise
+  simp only [ite_self, decide_False, Nat.zero_div, ite_true, ite_eq_right_iff]
+  rintro ⟨⟩
+  split <;> rfl
+
+theorem Nat.shiftLeft_toExp : x <<< n = 2^n * x := by
+  induction n
+  case zero => simp
+  case succ n ih =>
+    rw [Nat.pow_succ 2 n, Nat.shiftLeft_succ, ih]
+    calc
+      2 * (2 ^ n * x) = 2 * 2 ^ n * x := by rw [Nat.mul_assoc]
+                    _ = 2 ^ n * 2 * x := by rw [Nat.mul_comm (2^n) 2]
+
+theorem Nat.shiftRight_toDiv : x >>> n = x / 2^n := by
+  induction n
+  case zero => simp
+  case succ n ih =>
+    rw [Nat.pow_succ 2 n, Nat.shiftRight_succ, ih]
+    rw [Nat.div_div_eq_div_mul]
+
+theorem Nat.shiftRightLeft_leq : ∀n : Nat, (x >>> n) <<< n ≤ x := by
+  intro n
+  rw [Nat.shiftRight_toDiv, Nat.shiftLeft_toExp]
+  apply Nat.mul_div_le
+
+private theorem Nat.bitwise_dist_lem : f false false = false → 2 * Nat.bitwise f m n = Nat.bitwise f (2 * m) (2 * n) := by
+  intro hyp
+  unfold bitwise; split <;> split <;> try split <;> try split <;> try split
+  all_goals try simp_all
+  case inr.inr.inl.inl or₁ or₂ or₃ or₄ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
+  case inr.inr.inl.inr or₁ or₂ or₃ _ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
+  case inr.inr.inl.inl or₁ or₂ or₃ or₄ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
+  case inr.inr.inl.inr or₁ or₂ or₃ _ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
+  case inr.inr.inr.inr or₁ or₂ or₃ or₄ => simp_arith; (conv => rhs; unfold bitwise); simp_all
+
+theorem Nat.bitwise_dist : f false false = false → 2^k * Nat.bitwise f m n = Nat.bitwise f (2^k * m) (2^k * n) := by
+  induction k
+  case zero => simp
+  case succ k ih =>
+    intro hyp
+    simp [Nat.pow_succ, show 2^k * 2 = 2 * 2^k by apply Nat.mul_comm, Nat.mul_assoc]
+    conv => rhs; rw [←Nat.bitwise_dist_lem hyp]
+    rw [ih hyp]
+
+theorem Nat.or_mul_dist : 2^k * (x ||| y) = 2^k * x ||| 2^k * y := by
+  simp [HOr.hOr]; apply Nat.bitwise_dist; simp
+
+theorem Nat.and_mul_dist : 2^k * (x &&& y) = 2^k * x &&& 2^k * y := by
+  simp [HAnd.hAnd]; apply Nat.bitwise_dist; simp
+
+theorem Nat.and_xor_dist : 2^k * (x ^^^ y) = 2^k * x ^^^ 2^k * y := by
+  simp [HXor.hXor]; apply Nat.bitwise_dist; simp
+
+theorem Nat.shiftLeft_distribute : ∀n : Nat, (x ||| y) <<< n = (x <<< n) ||| (y <<< n) := by
+  intro n; simp [Nat.shiftLeft_toExp, Nat.or_mul_dist]
+
+@[simp]
+theorem UInt16.byteCeiling :  ∀(i  : UInt16), (i >>> 0x8) % 256 = i >>> 0x8 := by
+  intro i; lower_to_nat i; rename_i val lt₁
+
+  suffices (val >>> 0x8) % size % 256 = val >>> 0x8 % size by assumption
+  rw [Nat.shiftRight_toDiv]
+  have lt₂ : val / 2^8 < 256 := by
+    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^8 by decide)).mpr
+    exact lt₁
+  have lt₃ : val / 2^8 < size := by
+    apply Nat.lt_trans lt₂; decide
+  simp [Nat.mod_eq_of_lt lt₂, Nat.mod_eq_of_lt lt₃]
+
+theorem Nat.splitBytes : ∀n: Nat, n = n >>> 0x8 <<< 0x8 ||| n % 256 := by
+  intro n; simp [Nat.shiftLeft_toExp, Nat.shiftRight_toDiv]
+  suffices 256 * (n / 256) ||| n % 256 = 256 * (n / 256) + n % 256 by
+    rw [this, Nat.add_comm, Nat.mod_add_div]
+  apply Nat.bitwise_sum (n:=8)
+  · rw [Nat.mul_comm]; apply Nat.mul_mod_left
+  · apply Nat.mod_lt; trivial
+
+theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||| i % 256 := by
+  intro i; lower_to_nat i; rename_i val lt₁
+
+  checkpoint suffices val = ((val >>> 8 % 65536 % 256) <<< 8 % 65536 ||| val % 256) % 65536 by assumption
+
+  rw [Nat.shiftRight_toDiv]
+
+  have lt₂ : val / 2^8 < 256 := by
+    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^8 by decide)).mpr
+    exact lt₁
+
+  have lt₃ : val / 2^8 < size := by
+    apply Nat.lt_trans lt₂; decide
+
+  simp [Nat.mod_eq_of_lt lt₂, Nat.mod_eq_of_lt lt₃, Nat.shiftLeft_toExp]
+
+  have lt₄ : 256 * (val / 256) < size := by
+    cases Nat.le_iff_lt_or_eq.mp (Nat.mul_div_le val 256)
+    case inl or => apply Nat.lt_trans or; assumption
+    case inr or => rw [or]; assumption
+
+  simp [Nat.mod_eq_of_lt lt₄]
+
+  rw [show 256 = 2^8 by decide, ←Nat.shiftLeft_toExp, ←Nat.shiftRight_toDiv, ←Nat.splitBytes]
+
+  rw [Nat.mod_eq_of_lt lt₁]
 
 theorem UInt16.ByteArray_roundtrip :
   ∀ i : UInt16, ∀l, i.getBytesBEfrom.getUInt16BEfrom 0 l = i := by
   intro i l
+
   simp [
     UInt16.getBytesBEfrom,
     ByteArray.getUInt16BEfrom,
     ByteArray.get,
     Array.get,
     List.get,
+    UInt16_to_UInt8_round,
+    UInt16_to_UInt8_round,
+    UInt16.nullShift,
   ]
-  rw [UInt16_to_UInt8_round, UInt16_to_UInt8_round, UInt16.nullShift]
 
   apply Eq.symm
   apply UInt16.shiftUnshift i
