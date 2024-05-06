@@ -426,13 +426,10 @@ theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n
   induction k
   case zero => simp_arith [Nat.mod_one]
   case succ k k_ih =>
-  intro m
-  apply Nat.strongInductionOn m
-  intro v
-  intro ih n
+  intro v n
   unfold bitwise; split <;> split <;> try split <;> try split <;> try split
   all_goals try simp_all <;> split
-  all_goals rewrite [show ∀{x}, x + x = 2 * x by simp_arith]
+  all_goals repeat rewrite [show ∀{x}, x + x = 2 * x by simp_arith]
   all_goals rewrite [Nat.pow_succ]
   all_goals try split
   case inr.inr.inl.inl.inr or₁ or₂ or₃ or₄ =>
@@ -504,7 +501,6 @@ theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n
     rw [Nat.add_comm, Nat.add_mod_mod]
     rw [Nat.add_comm, Nat.mul_comm, ←vodd, Nat.div_add_mod]
   case inr.inr.inr.inr.inl.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
-    rw [show ∀{x}, x + x = 2 * x by simp_arith]
     rw [Nat.add_mod]
     rw [Nat.mul_comm]
     rw [Nat.mul_mod_mul_right]
@@ -525,13 +521,10 @@ theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n
     rw [Nat.mod_eq_of_lt this]
     simp_arith
   case inr.inr.inr.inr.inl.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
-    simp_arith at or₆; cases or₅
-    · exfalso; apply or₆.1; assumption
-    · exfalso; apply or₆.2; assumption
+    exfalso; apply or₆; simp; assumption
   case inr.inr.inr.inr.inr.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
-    simp_arith at or₆; exfalso; apply or₅; assumption
+    exfalso; apply or₅; simp at or₆; assumption
   case inr.inr.inr.inr.inr.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
-    rw [show ∀{x}, x + x = 2 * x by simp_arith]
     rw [Nat.mul_comm]
     rw [Nat.mul_mod_mul_right]
     repeat rw [Nat.mod_mul_left_div_self]
