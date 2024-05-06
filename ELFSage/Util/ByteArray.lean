@@ -399,11 +399,8 @@ private theorem Nat.bitwise_dist_lem : f false false = false → 2 * Nat.bitwise
   intro hyp
   unfold bitwise; split <;> split <;> try split <;> try split <;> try split
   all_goals try simp_all
-  case inr.inr.inl.inl or₁ or₂ or₃ or₄ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
-  case inr.inr.inl.inr or₁ or₂ or₃ _ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
-  case inr.inr.inl.inl or₁ or₂ or₃ or₄ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
-  case inr.inr.inl.inr or₁ or₂ or₃ _ => exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all
   case inr.inr.inr.inr or₁ or₂ or₃ or₄ => simp_arith; (conv => rhs; unfold bitwise); simp_all
+  all_goals (rename_i or₁ or₂ or₃ or₄; exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all)
 
 theorem Nat.bitwise_dist : f false false = false → 2^k * Nat.bitwise f m n = Nat.bitwise f (2^k * m) (2^k * n) := by
   induction k
@@ -473,6 +470,22 @@ theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||
   rw [show 256 = 2^8 by decide, ←Nat.shiftLeft_toExp, ←Nat.shiftRight_toDiv, ←Nat.splitBytes]
 
   rw [Nat.mod_eq_of_lt lt₁]
+
+theorem UInt32.shiftUnshift : ∀(i  : UInt32),
+  i = (i >>> 0x18 % 256) <<< 0x18 |||
+      (i >>> 0x10 % 256) <<< 0x10 |||
+      (i >>> 0x08 % 256) <<< 0x08 |||
+      i % 256 := by sorry
+
+theorem UInt64.shiftUnshift : ∀(i  : UInt64),
+  i = (i >>> 0x38 % 256) <<< 0x38 |||
+      (i >>> 0x30 % 256) <<< 0x30 |||
+      (i >>> 0x28 % 256) <<< 0x28 |||
+      (i >>> 0x20 % 256) <<< 0x20 |||
+      (i >>> 0x18 % 256) <<< 0x18 |||
+      (i >>> 0x10 % 256) <<< 0x10 |||
+      (i >>> 0x08 % 256) <<< 0x08 |||
+      i % 256 := sorry
 
 theorem UInt16.ByteArray_roundtrip :
   ∀ i : UInt16, ∀l, i.getBytesBEfrom.getUInt16BEfrom 0 l = i := by
