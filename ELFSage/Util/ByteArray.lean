@@ -1,4 +1,3 @@
---BigEndian
 
 def ByteArray.getUInt64BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 :=
   (bs.get ⟨offset + 0, by omega⟩).toUInt64 <<< 0x38 |||
@@ -221,6 +220,9 @@ theorem UInt16.ByteArray_size : ∀ i : UInt16, i.getBytesBEfrom.size = 2 := by
 theorem UInt16.eq_of_val_eq : ∀{i j : UInt16}, i.val = j.val → i = j
   | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
 
+theorem UInt32.eq_of_val_eq : ∀{i j : UInt32}, i.val = j.val → i = j
+  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
+
 theorem UInt16.val_eq_of_eq : ∀{i j : UInt16}, i = j → i.val = j.val
   | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
 
@@ -319,15 +321,17 @@ theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitw
 
 -/
 
-macro "lower_to_nat" i:Lean.Parser.Tactic.casesTarget: tactic => `(tactic|
+macro "lower_to_nat" i:Lean.Parser.Tactic.casesTarget: tactic => `(tactic|(
   simp [
     HShiftRight.hShiftRight,
     ShiftRight.shiftRight,
     UInt16.shiftRight,
+    UInt32.shiftRight,
     Fin.shiftRight,
 
     HShiftLeft.hShiftLeft,
     ShiftLeft.shiftLeft,
+    UInt32.shiftLeft,
     UInt16.shiftLeft,
     Fin.shiftLeft,
 
@@ -335,27 +339,35 @@ macro "lower_to_nat" i:Lean.Parser.Tactic.casesTarget: tactic => `(tactic|
     Mod.mod,
     UInt16.mod,
     UInt16.modn,
+    UInt32.mod,
+    UInt32.modn,
     Fin.mod,
     Fin.div,
     show (8 : UInt16).val = 8 by decide,
-    show (8 : Fin (2^8)).val = 8 by decide,
+    show (8 : UInt32).val = 8 by decide,
+    show (16 : UInt32).val = 16 by decide,
+    show (24 : UInt32).val = 24 by decide,
+    show (8 : Fin (2^16)).val = 8 by decide,
+    show (8 : Fin (2^32)).val = 8 by decide,
+    show (16 : Fin (2^32)).val = 16 by decide,
+    show (24 : Fin (2^32)).val = 24 by decide,
     show Nat.mod 8 16 = 8 by decide,
+    show Nat.mod 8 32 = 8 by decide,
+    show Nat.mod 16 32 = 16 by decide,
+    show Nat.mod 24 32 = 24 by decide,
     show Nat.mod 256 65536 = 256 by decide,
 
     HOr.hOr,
     OrOp.or,
-    UInt16.lor,
-    Fin.lor,
-    Nat.lor,
   ]
-  <;> rcases $i with ⟨val⟩
-  <;> apply UInt16.eq_of_val_eq
-  <;> simp_arith
-  <;> rcases val with ⟨val, lt_val⟩
-  <;> apply Fin.eq_of_val_eq
-  <;> simp_arith
-
-)
+  rcases $i with ⟨val⟩
+  try apply UInt16.eq_of_val_eq
+  try apply UInt32.eq_of_val_eq
+  simp_arith
+  rcases val with ⟨val, lt_val⟩
+  apply Fin.eq_of_val_eq
+  simp_arith
+))
 
 theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
   intro i
@@ -402,6 +414,132 @@ private theorem Nat.bitwise_dist_lem : f false false = false → 2 * Nat.bitwise
   case inr.inr.inr.inr or₁ or₂ or₃ or₄ => simp_arith; (conv => rhs; unfold bitwise); simp_all
   all_goals (rename_i or₁ or₂ or₃ or₄; exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all)
 
+theorem Nat.mod_pow_zero : n % m^(succ k) = 0 → n % m = 0 := by
+  intro hyp
+  rw [Nat.pow_succ] at hyp
+  have : n % (m ^ k * m) % m = 0 % m := by rw [hyp]
+  simp [Nat.mod_mul_left_mod n (m^k) m] at this
+  assumption
+
+theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n % 2^k) := by
+  revert n m
+  induction k
+  case zero => simp_arith [Nat.mod_one]
+  case succ k k_ih =>
+  intro m
+  apply Nat.strongInductionOn m
+  intro v
+  intro ih n
+  unfold bitwise; split <;> split <;> try split <;> try split <;> try split
+  all_goals try simp_all <;> split
+  all_goals rewrite [show ∀{x}, x + x = 2 * x by simp_arith]
+  all_goals rewrite [Nat.pow_succ]
+  all_goals try split
+  case inr.inr.inl.inl.inr or₁ or₂ or₃ or₄ =>
+    conv => lhs; lhs; rw [Nat.mul_comm]
+    rw [Nat.mul_mod_mul_right]
+    have veven : v % 2 = 0 := Nat.mod_pow_zero or₃
+    have neven : n % 2 = 0 := by
+      cases Nat.mod_two_eq_zero_or_one n
+      · assumption
+      · exfalso; apply or₄; apply Or.inr; assumption
+    have : v / 2 % 2 ^ k = 0 := by
+      apply Nat.mul_right_cancel (show 0 < 2 by decide)
+      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+      assumption
+      apply Nat.dvd_of_mod_eq_zero veven
+    simp [k_ih, this]
+    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+    apply Nat.dvd_of_mod_eq_zero neven
+  case inr.inr.inl.inl.inr or₁ or₂ or₃ or₄ =>
+    conv => lhs; lhs; rw [Nat.mul_comm]
+    rw [Nat.mul_mod_mul_right]
+    have veven : v % 2 = 0 := by
+      cases Nat.mod_two_eq_zero_or_one v
+      · assumption
+      · exfalso; apply or₄; apply Or.inl; assumption
+    have neven : n % 2 = 0 := Nat.mod_pow_zero or₃
+    have : n / 2 % 2 ^ k = 0 := by
+      apply Nat.mul_right_cancel (show 0 < 2 by decide)
+      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+      assumption
+      apply Nat.dvd_of_mod_eq_zero neven
+    simp [k_ih, this]
+    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+    apply Nat.dvd_of_mod_eq_zero veven
+  case inr.inr.inl.inl.inl or₁ or₂ or₃ or₄ =>
+    conv => lhs; lhs; rw [Nat.mul_comm]
+    conv => lhs; rw [←Nat.mod_add_mod]
+    rw [Nat.mul_mod_mul_right]
+    have veven : v % 2 = 0 := Nat.mod_pow_zero or₃
+    have nodd : n % 2 = 1 := by
+      cases or₄
+      · rw [veven] at *; contradiction
+      · assumption
+    have : v / 2 % 2 ^ k = 0 := by
+      apply Nat.mul_right_cancel (show 0 < 2 by decide)
+      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+      assumption
+      apply Nat.dvd_of_mod_eq_zero veven
+    simp [k_ih, this]
+    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ]
+    rw [Nat.add_comm, Nat.add_mod_mod]
+    rw [Nat.add_comm, Nat.mul_comm, ←nodd, Nat.div_add_mod]
+  case inr.inr.inr.inl.inl.inl or₁ or₂ or₃ or₄ or₅ =>
+    conv => lhs; lhs; rw [Nat.mul_comm]
+    conv => lhs; rw [←Nat.mod_add_mod]
+    rw [Nat.mul_mod_mul_right]
+    have neven : n % 2 = 0 := Nat.mod_pow_zero or₄
+    have vodd : v % 2 = 1 := by
+      cases or₅
+      · assumption
+      · rw [neven] at *; contradiction
+    have : n / 2 % 2 ^ k = 0 := by
+      apply Nat.mul_right_cancel (show 0 < 2 by decide)
+      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
+      assumption
+      apply Nat.dvd_of_mod_eq_zero neven
+    simp [k_ih, this]
+    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ]
+    rw [Nat.add_comm, Nat.add_mod_mod]
+    rw [Nat.add_comm, Nat.mul_comm, ←vodd, Nat.div_add_mod]
+  case inr.inr.inr.inr.inl.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
+    rw [show ∀{x}, x + x = 2 * x by simp_arith]
+    rw [Nat.add_mod]
+    rw [Nat.mul_comm]
+    rw [Nat.mul_mod_mul_right]
+    repeat rw [Nat.mod_mul_left_div_self]
+    rw [←k_ih]
+    simp_arith
+    have modsmall : bitwise or (v / 2) (n / 2) % 2 ^ k < 2 ^ k := by
+      apply Nat.mod_lt
+      apply Nat.pow_pos
+      trivial
+    have : ∀{n}, n < 2^k → n * 2 + 1 < 2^k * 2 := by
+      intro n hyp
+      have : n + 1 ≤ 2^k := Nat.succ_le.mpr hyp
+      have : (n + 1) * 2 ≤ 2^k * 2 := Nat.mul_le_mul_right 2 this
+      apply Nat.lt_of_lt_of_le _ this
+      simp_arith
+    have : (bitwise or (v / 2) (n / 2) % 2 ^ k * 2 + 1) < (2 ^ k * 2) := this modsmall
+    rw [Nat.mod_eq_of_lt this]
+    simp_arith
+  case inr.inr.inr.inr.inl.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
+    simp_arith at or₆; cases or₅
+    · exfalso; apply or₆.1; assumption
+    · exfalso; apply or₆.2; assumption
+  case inr.inr.inr.inr.inr.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
+    simp_arith at or₆; exfalso; apply or₅; assumption
+  case inr.inr.inr.inr.inr.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
+    rw [show ∀{x}, x + x = 2 * x by simp_arith]
+    rw [Nat.mul_comm]
+    rw [Nat.mul_mod_mul_right]
+    repeat rw [Nat.mod_mul_left_div_self]
+    rw [←k_ih]
+    simp_arith
+
+
+
 theorem Nat.bitwise_dist : f false false = false → 2^k * Nat.bitwise f m n = Nat.bitwise f (2^k * m) (2^k * n) := by
   induction k
   case zero => simp
@@ -447,7 +585,13 @@ theorem Nat.splitBytes : ∀n: Nat, n = n >>> 0x8 <<< 0x8 ||| n % 256 := by
 theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||| i % 256 := by
   intro i; lower_to_nat i; rename_i val lt₁
 
-  checkpoint suffices val = ((val >>> 8 % 65536 % 256) <<< 8 % 65536 ||| val % 256) % 65536 by assumption
+  unfold lor; unfold Fin.lor
+  simp [
+    show ∀x y, Nat.lor x y = x ||| y by intro x y; rfl,
+    show ∀x y, Nat.shiftRight x y = x >>> y by intro x y; rfl,
+    show ∀x y, Nat.shiftLeft x y = x <<< y by intro x y; rfl,
+    show ∀x y, Nat.mod x y = x % y by intro x y; rfl
+  ]
 
   rw [Nat.shiftRight_toDiv]
 
@@ -475,7 +619,71 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   i = (i >>> 0x18 % 256) <<< 0x18 |||
       (i >>> 0x10 % 256) <<< 0x10 |||
       (i >>> 0x08 % 256) <<< 0x08 |||
-      i % 256 := by sorry
+      i % 256 := by
+  intro i;
+  lower_to_nat i; rename_i val lt₁
+  unfold lor
+  unfold Fin.lor; simp
+  simp [
+    show ∀x y, Nat.lor x y = x ||| y by intro x y; rfl,
+    show ∀x y, Nat.shiftRight x y = x >>> y by intro x y; rfl,
+    show ∀x y, Nat.shiftLeft x y = x <<< y by intro x y; rfl,
+    show ∀x y, Nat.mod x y = x % y by intro x y; rfl
+  ]
+
+  simp [Nat.shiftRight_toDiv]
+
+  have lt₂ : val / 2^24 < size := by
+    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^24 by decide)).mpr
+    apply Nat.lt_trans (m:=size)
+    · assumption
+    · decide
+
+  have lt₃ : val / 2^16 < size := by
+    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^16 by decide)).mpr
+    apply Nat.lt_trans (m:=size)
+    · assumption
+    · decide
+
+  have lt₄ : val / 2^8 < size := by
+    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^8 by decide)).mpr
+    apply Nat.lt_trans (m:=size)
+    · assumption
+    · decide
+
+  simp [
+    Nat.mod_eq_of_lt lt₂,
+    Nat.mod_eq_of_lt lt₃,
+    Nat.mod_eq_of_lt lt₄,
+    Nat.shiftLeft_toExp
+  ]
+
+  have lt₅ : 2^24 * (val / 2^24 % 256) < size := by
+    apply Nat.lt_of_lt_of_le (m:= 2^24 * 256)
+    · apply (Nat.mul_lt_mul_left (show 0 < 2^24 by decide)).mpr
+      apply Nat.mod_lt; decide
+    · decide
+
+  have lt₆ : 2^16 * (val / 2^16 % 256) < size := by
+    apply Nat.lt_of_lt_of_le (m:= 2^16 * 256)
+    · apply (Nat.mul_lt_mul_left (show 0 < 2^16 by decide)).mpr
+      apply Nat.mod_lt; decide
+    · decide
+
+  have lt₇ : 2^8 * (val / 2^8 % 256) < size := by
+    apply Nat.lt_of_lt_of_le (m:= 2^8 * 256)
+    · apply (Nat.mul_lt_mul_left (show 0 < 2^8 by decide)).mpr
+      apply Nat.mod_lt; decide
+    · decide
+
+  simp [
+    Nat.mod_eq_of_lt lt₅,
+    Nat.mod_eq_of_lt lt₆,
+    Nat.mod_eq_of_lt lt₇
+  ]
+
+  rw [show 256 = 2^8 by decide, ←Nat.shiftLeft_toExp, ←Nat.shiftRight_toDiv]
+
 
 theorem UInt64.shiftUnshift : ∀(i  : UInt64),
   i = (i >>> 0x38 % 256) <<< 0x38 |||
