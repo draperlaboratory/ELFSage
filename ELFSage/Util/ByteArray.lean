@@ -254,55 +254,14 @@ theorem UInt16_to_UInt8_round: ∀{i : UInt16}, i.toUInt8.toUInt16 = i % 256:= b
   have : ↑i % 256 < 256 := @Nat.mod_lt ↑i 256 (by omega)
   omega
 
--- this might be easily provable with Nat.mul_add_lt_is_or
-theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitwise or m k = m + k := by
-  intro n
-  induction n
-  case zero =>
-    intro m k _ h₂
-    simp_arith at *
-    simp_all [h₂, Nat.bitwise]
-  case succ n ih =>
-    intro m k h₁ h₂
-    have l₀ := (Nat.dvd_iff_mod_eq_zero (2 ^ Nat.succ n) m).mpr h₁
-    have l₁ : Dvd.dvd 2 m := by
-      refine Nat.dvd_of_pow_dvd ?_ l₀
-      simp_arith
-    have l₂ : m % 2 = 0 := Nat.mod_eq_zero_of_dvd l₁
-    have l₃ : (m / 2) % 2 ^ n = 0 := by
-      apply (Nat.dvd_iff_mod_eq_zero (2 ^ n) (m / 2)).mp
-      apply Nat.dvd_of_mul_dvd_mul_right (k := 2) (by decide)
-      simp_all [Nat.div_mul_cancel l₁, ←Nat.pow_succ]
-    have l₄ : (k /2) < 2 ^ n := by
-      simp [Nat.pow_succ] at h₂
-      apply Nat.div_lt_of_lt_mul
-      simp_all [Nat.mul_comm]
-    unfold Nat.bitwise
-    split <;> simp_arith
-    . simp_all
-    . split
-      . simp_all
-      . split
-        case inr.inr.inl h₃ h₄ h₅ =>
-          cases h₅
-          case inl h₅ => rw [l₂] at h₅; contradiction
-          case inr h₅ =>
-            have ih := ih l₃ l₄
-            simp_arith [ih]
-            rw [Nat.mul_comm, Nat.div_mul_cancel l₁]
-            simp_arith
-            conv => rhs; rw [←Nat.mod_add_div k 2]
-            simp_arith [h₅]
-        case inr.inr.inr h₃ h₄ h₅ =>
-          have ih := ih l₃ l₄
-          simp_arith [ih]
-          rw [Nat.mul_comm, Nat.div_mul_cancel l₁]
-          cases (Nat.mod_two_eq_zero_or_one k)
-          case inr rhs => exfalso; apply h₅; exact Or.inr rhs
-          case inl lhs =>
-            have : Dvd.dvd 2 k := (Nat.dvd_iff_mod_eq_zero 2 k).mpr lhs
-            rw [Nat.mul_comm, Nat.div_mul_cancel this]
-
+theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → m ||| k = m + k := by
+  intro n m k eq lt
+  have : 2^n * (m / 2^n) = m := by
+    apply Nat.mul_div_cancel'
+    exact Nat.dvd_of_mod_eq_zero eq
+  rw [←this]
+  rw [Nat.mul_add_lt_is_or]
+  assumption
 
 /--
   OK, so the idea for doing these proofs more systematically would be to prove that
@@ -384,13 +343,7 @@ theorem Nat.bitwise_zero_right : bitwise f n 0 = if f true false then n else 0 :
   split <;> rfl
 
 theorem Nat.shiftLeft_toExp : x <<< n = 2^n * x := by
-  induction n
-  case zero => simp
-  case succ n ih =>
-    rw [Nat.pow_succ 2 n, Nat.shiftLeft_succ, ih]
-    calc
-      2 * (2 ^ n * x) = 2 * 2 ^ n * x := by rw [Nat.mul_assoc]
-                    _ = 2 ^ n * 2 * x := by rw [Nat.mul_comm (2^n) 2]
+  rw [Nat.mul_comm]; apply Nat.shiftLeft_eq
 
 theorem Nat.shiftRight_toDiv : x >>> n = x / 2^n := by
   induction n
@@ -455,7 +408,7 @@ theorem Nat.shiftLeft_mod : w + m ≥ k → (n % 2^w) <<< m % 2^k = n <<< m % 2^
         simp_all [Nat.mul_comm]
       suffices 2 * (2 ^ m  * (n % 2 ^ w)) % (2 * 2 ^ k) = 2 * (2 ^ m * n) % (2 * 2 ^ k) by
         simp_all [Nat.mul_assoc]
-      simp_all [Nat.mul_mod_mul_left]
+      simp [Nat.mul_mod_mul_left]
       rw [ih_k]
       simp_arith at hyp
       assumption
@@ -609,8 +562,9 @@ theorem UInt16.byteCeiling :  ∀(i  : UInt16), (i >>> 0x8) % 256 = i >>> 0x8 :=
   simp [Nat.mod_eq_of_lt lt₂, Nat.mod_eq_of_lt lt₃]
 
 theorem Nat.splitBytes : ∀n: Nat, n = n >>> 0x8 <<< 0x8 ||| n % 256 := by
-  intro n; simp [Nat.shiftLeft_toExp, Nat.shiftRight_toDiv]
+  intro n
   suffices 256 * (n / 256) ||| n % 256 = 256 * (n / 256) + n % 256 by
+    simp [Nat.shiftLeft_toExp, Nat.shiftRight_toDiv]
     rw [this, Nat.add_comm, Nat.mod_add_div]
   apply Nat.bitwise_sum (n:=8)
   · rw [Nat.mul_comm]; apply Nat.mul_mod_left
@@ -633,11 +587,11 @@ theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||
     ←Nat.mod_pow_lt_outer (show 2 > 1 by decide) (show 16 ≥ 8 by decide),
     ←Nat.bitwise_or_mod,
     ←Nat.splitBytes,
-    Nat.mod_mod]
+    Nat.mod_mod
+  ]
   apply Eq.symm
   apply Nat.mod_eq_of_lt
   assumption
-
 
 theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   i = (i >>> 0x18 % 256) <<< 0x18 |||
@@ -659,10 +613,10 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   repeat rw [Nat.mod_pow_lt_inner]
   all_goals try decide
   suffices val =
-      ((val >>> 24 % 2^8) <<< 24 |||
-       (val >>> 16 % 2^8) <<< 16 |||
-       (val >>> 8 % 2^8)  <<< 8) |||
-       val % 2^8
+      (val >>> 24 % 2^8) <<< 24 |||
+      (val >>> 16 % 2^8) <<< 16 |||
+      (val >>> 8 % 2^8)  <<< 8  |||
+      val % 2^8
     by
     have eq : val % 2^32 = val % 2^32 := by rfl
     conv at eq => rhs; rw [this]
