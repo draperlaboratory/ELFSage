@@ -254,7 +254,7 @@ theorem UInt16_to_UInt8_round: ∀{i : UInt16}, i.toUInt8.toUInt16 = i % 256:= b
   have : ↑i % 256 < 256 := @Nat.mod_lt ↑i 256 (by omega)
   omega
 
-
+-- this might be easily provable with Nat.mul_add_lt_is_or
 theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → Nat.bitwise or m k = m + k := by
   intro n
   induction n
@@ -370,10 +370,7 @@ macro "lower_to_nat" i:Lean.Parser.Tactic.casesTarget: tactic => `(tactic|(
 ))
 
 theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
-  intro i
-  lower_to_nat i
-  apply Nat.mod_eq_of_lt
-  assumption
+  intro i; lower_to_nat i; apply Nat.mod_eq_of_lt; assumption
 
 @[simp]
 theorem Nat.bitwise_zero_left : bitwise f 0 m = if f false true then m else 0 :=
@@ -421,10 +418,53 @@ theorem Nat.mod_pow_zero : n % m^(succ k) = 0 → n % m = 0 := by
   simp [Nat.mod_mul_left_mod n (m^k) m] at this
   assumption
 
+theorem Nat.zero_lt_pow : 0 < n → 0 < n^m := by
+  intro hyp; induction m
+  case zero => simp
+  case succ m ih =>
+    simp [Nat.pow_succ]
+    have := (Nat.mul_lt_mul_right hyp).mpr ih
+    simp at this
+    assumption
+
+theorem Nat.mod_pow_lt_inner : ∀{l m n k : Nat}, l ≤ m → n % k^m % k^l = n % k^l := by
+  intro l m n k hyp; apply Nat.mod_mod_of_dvd; apply Nat.pow_dvd_pow; assumption
+
+theorem Nat.mod_pow_lt_outer : ∀{l m n k : Nat}, 1 < k → l ≤ m → n % k^l % k^m = n % k^l := by
+  intro l m n k hyp₁ hyp₂
+  cases Nat.le_iff_lt_or_eq.mp hyp₂
+  case inl hyp₂ =>
+    apply Nat.mod_eq_of_lt
+    apply Nat.lt_trans (m := k ^ l)
+    · apply Nat.mod_lt; apply Nat.zero_lt_pow; omega
+    · apply Nat.pow_lt_pow_of_lt hyp₁; assumption
+  case inr hyp₂ => rw [hyp₂, Nat.mod_mod]
+
+theorem Nat.shiftLeft_mod : w + m ≥ k → (n % 2^w) <<< m % 2^k = n <<< m % 2^k := by
+  simp_all [Nat.shiftLeft_toExp]
+  revert m
+  induction k <;> intro m
+  case zero => simp [Nat.mod_one]
+  case succ k ih_k =>
+    intro hyp
+    cases m
+    case zero => simp_all; exact Nat.mod_pow_lt_inner hyp
+    case succ m =>
+      simp [Nat.pow_succ]
+      suffices 2 * 2 ^ m  * (n % 2 ^ w) % (2 * 2 ^ k) = 2 * 2 ^ m * n % (2 * 2 ^ k) by
+        simp_all [Nat.mul_comm]
+      suffices 2 * (2 ^ m  * (n % 2 ^ w)) % (2 * 2 ^ k) = 2 * (2 ^ m * n) % (2 * 2 ^ k) by
+        simp_all [Nat.mul_assoc]
+      simp_all [Nat.mul_mod_mul_left]
+      rw [ih_k]
+      simp_arith at hyp
+      assumption
+
+--TODO: this should generalize to arbitrary bitwise ops.
 theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n % 2^k) := by
   revert n m
   induction k
-  case zero => simp_arith [Nat.mod_one]
+  case zero => simp [Nat.mod_one]
   case succ k k_ih =>
   intro v n
   unfold bitwise; split <;> split <;> try split <;> try split <;> try split
@@ -531,7 +571,8 @@ theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n
     rw [←k_ih]
     simp_arith
 
-
+theorem Nat.bitwise_or_mod : (m ||| n) % 2^k = m % 2^k ||| n % 2^k := by
+  simp [HOr.hOr]; apply Nat.bitwise_mod
 
 theorem Nat.bitwise_dist : f false false = false → 2^k * Nat.bitwise f m n = Nat.bitwise f (2^k * m) (2^k * n) := by
   induction k
@@ -577,36 +618,26 @@ theorem Nat.splitBytes : ∀n: Nat, n = n >>> 0x8 <<< 0x8 ||| n % 256 := by
 
 theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||| i % 256 := by
   intro i; lower_to_nat i; rename_i val lt₁
-
   unfold lor; unfold Fin.lor
   simp [
     show ∀x y, Nat.lor x y = x ||| y by intro x y; rfl,
     show ∀x y, Nat.shiftRight x y = x >>> y by intro x y; rfl,
     show ∀x y, Nat.shiftLeft x y = x <<< y by intro x y; rfl,
-    show ∀x y, Nat.mod x y = x % y by intro x y; rfl
+    show ∀x y, Nat.mod x y = x % y by intro x y; rfl,
   ]
-
-  rw [Nat.shiftRight_toDiv]
-
-  have lt₂ : val / 2^8 < 256 := by
-    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^8 by decide)).mpr
-    exact lt₁
-
-  have lt₃ : val / 2^8 < size := by
-    apply Nat.lt_trans lt₂; decide
-
-  simp [Nat.mod_eq_of_lt lt₂, Nat.mod_eq_of_lt lt₃, Nat.shiftLeft_toExp]
-
-  have lt₄ : 256 * (val / 256) < size := by
-    cases Nat.le_iff_lt_or_eq.mp (Nat.mul_div_le val 256)
-    case inl or => apply Nat.lt_trans or; assumption
-    case inr or => rw [or]; assumption
-
-  simp [Nat.mod_eq_of_lt lt₄]
-
-  rw [show 256 = 2^8 by decide, ←Nat.shiftLeft_toExp, ←Nat.shiftRight_toDiv, ←Nat.splitBytes]
-
-  rw [Nat.mod_eq_of_lt lt₁]
+  rw [
+    show 256 = 2^8 by decide,
+    show size = 2^16 by decide
+  ]
+  rw [Nat.shiftLeft_mod (show 8 + 8 ≥ 16 by decide)]
+  rw [Nat.shiftLeft_mod (show 16 + 8 ≥ 16 by decide)]
+  rw [←Nat.mod_pow_lt_outer (show 2 > 1 by decide) (show 16 ≥ 8 by decide)]
+  rw [←Nat.bitwise_or_mod]
+  rw [←Nat.splitBytes]
+  rw [Nat.mod_mod]
+  apply Eq.symm
+  apply Nat.mod_eq_of_lt
+  assumption
 
 theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   i = (i >>> 0x18 % 256) <<< 0x18 |||
@@ -621,61 +652,17 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
     show ∀x y, Nat.lor x y = x ||| y by intro x y; rfl,
     show ∀x y, Nat.shiftRight x y = x >>> y by intro x y; rfl,
     show ∀x y, Nat.shiftLeft x y = x <<< y by intro x y; rfl,
-    show ∀x y, Nat.mod x y = x % y by intro x y; rfl
+    show ∀x y, Nat.mod x y = x % y by intro x y; rfl,
   ]
+  rw [show 256 = 2^8 by decide]
+  rw [show size = 2^32 by decide]
+  repeat rw [Nat.mod_pow_lt_inner]
+  all_goals try decide
 
-  simp [Nat.shiftRight_toDiv]
 
-  have lt₂ : val / 2^24 < size := by
-    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^24 by decide)).mpr
-    apply Nat.lt_trans (m:=size)
-    · assumption
-    · decide
 
-  have lt₃ : val / 2^16 < size := by
-    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^16 by decide)).mpr
-    apply Nat.lt_trans (m:=size)
-    · assumption
-    · decide
 
-  have lt₄ : val / 2^8 < size := by
-    apply (Nat.div_lt_iff_lt_mul (show 0 < 2^8 by decide)).mpr
-    apply Nat.lt_trans (m:=size)
-    · assumption
-    · decide
 
-  simp [
-    Nat.mod_eq_of_lt lt₂,
-    Nat.mod_eq_of_lt lt₃,
-    Nat.mod_eq_of_lt lt₄,
-    Nat.shiftLeft_toExp
-  ]
-
-  have lt₅ : 2^24 * (val / 2^24 % 256) < size := by
-    apply Nat.lt_of_lt_of_le (m:= 2^24 * 256)
-    · apply (Nat.mul_lt_mul_left (show 0 < 2^24 by decide)).mpr
-      apply Nat.mod_lt; decide
-    · decide
-
-  have lt₆ : 2^16 * (val / 2^16 % 256) < size := by
-    apply Nat.lt_of_lt_of_le (m:= 2^16 * 256)
-    · apply (Nat.mul_lt_mul_left (show 0 < 2^16 by decide)).mpr
-      apply Nat.mod_lt; decide
-    · decide
-
-  have lt₇ : 2^8 * (val / 2^8 % 256) < size := by
-    apply Nat.lt_of_lt_of_le (m:= 2^8 * 256)
-    · apply (Nat.mul_lt_mul_left (show 0 < 2^8 by decide)).mpr
-      apply Nat.mod_lt; decide
-    · decide
-
-  simp [
-    Nat.mod_eq_of_lt lt₅,
-    Nat.mod_eq_of_lt lt₆,
-    Nat.mod_eq_of_lt lt₇
-  ]
-
-  rw [show 256 = 2^8 by decide, ←Nat.shiftLeft_toExp, ←Nat.shiftRight_toDiv]
 
 
 theorem UInt64.shiftUnshift : ∀(i  : UInt64),
