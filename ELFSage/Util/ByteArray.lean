@@ -627,17 +627,17 @@ theorem UInt16.shiftUnshift : ∀(i  : UInt16), i = (i >>> 0x8 % 256) <<< 0x8 ||
   ]
   rw [
     show 256 = 2^8 by decide,
-    show size = 2^16 by decide
-  ]
-  rw [Nat.shiftLeft_mod (show 8 + 8 ≥ 16 by decide)]
-  rw [Nat.shiftLeft_mod (show 16 + 8 ≥ 16 by decide)]
-  rw [←Nat.mod_pow_lt_outer (show 2 > 1 by decide) (show 16 ≥ 8 by decide)]
-  rw [←Nat.bitwise_or_mod]
-  rw [←Nat.splitBytes]
-  rw [Nat.mod_mod]
+    show size = 2^16 by decide,
+    Nat.shiftLeft_mod (show 8 + 8 ≥ 16 by decide),
+    Nat.shiftLeft_mod (show 16 + 8 ≥ 16 by decide),
+    ←Nat.mod_pow_lt_outer (show 2 > 1 by decide) (show 16 ≥ 8 by decide),
+    ←Nat.bitwise_or_mod,
+    ←Nat.splitBytes,
+    Nat.mod_mod]
   apply Eq.symm
   apply Nat.mod_eq_of_lt
   assumption
+
 
 theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   i = (i >>> 0x18 % 256) <<< 0x18 |||
@@ -658,12 +658,42 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   rw [show size = 2^32 by decide]
   repeat rw [Nat.mod_pow_lt_inner]
   all_goals try decide
-
-
-
-
-
-
+  suffices val =
+      ((val >>> 24 % 2^8) <<< 24 |||
+       (val >>> 16 % 2^8) <<< 16 |||
+       (val >>> 8 % 2^8)  <<< 8) |||
+       val % 2^8
+    by
+    have eq : val % 2^32 = val % 2^32 := by rfl
+    conv at eq => rhs; rw [this]
+    conv at eq => lhs; rw [Nat.mod_eq_of_lt lt₁]
+    repeat rw [Nat.bitwise_or_mod]
+    rw [←Nat.mod_mod, ←Nat.mod_mod, ←Nat.mod_mod] at eq
+    repeat rw [Nat.bitwise_or_mod] at eq
+    repeat rw [Nat.mod_mod] at eq
+    repeat rw [Nat.mod_mod]
+    exact eq
+  have : val >>> 24 % 2 ^ 8 = val >>> 24 := by
+    apply Nat.mod_eq_of_lt
+    apply Nat.lt_of_lt_of_le (m:= size >>> 24)
+    · repeat rw [Nat.shiftRight_toDiv]
+      apply Nat.div_lt_of_lt_mul
+      apply Nat.lt_of_lt_of_le (m:= size)
+      · assumption
+      · rw [Nat.mul_comm, Nat.div_mul_cancel] <;> simp_arith
+    · simp_arith
+  rw [
+    this,
+    Nat.shiftRight_add val 16 8,
+    ←Nat.shiftLeft_shiftLeft _ 8 16,
+    ←Nat.shiftLeft_distribute,
+    ←Nat.splitBytes,
+    Nat.shiftRight_add val 8 8,
+    ←Nat.shiftLeft_shiftLeft _ 8 8,
+    ←Nat.shiftLeft_distribute,
+    ←Nat.splitBytes,
+    ←Nat.splitBytes
+  ]
 
 theorem UInt64.shiftUnshift : ∀(i  : UInt64),
   i = (i >>> 0x38 % 256) <<< 0x38 |||
