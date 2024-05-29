@@ -41,7 +41,7 @@ def SymbolTableEntry.getTarget? [SymbolTableEntry α] (ste : α) (elffile : RawE
 a relocatable file, or an intended virtual address in memory, in an executable.
 This computes the section offset for a symbol -/
 def SymbolTableEntry.getSectionOffset?  [SymbolTableEntry α] (ste : α) (elffile : RawELFFile) : Except String Nat := do
-  match ELFHeader.e_type_val elffile with
+  match ELFHeader.e_type_val elffile.getRawELFHeader with
   | .et_exec => do
     let ⟨_, target_sec⟩ ← SymbolTableEntry.getTarget? ste elffile
     return SymbolTableEntry.st_value ste - target_sec.section_addr
@@ -60,9 +60,7 @@ def SymbolTableEntry.nextSymbolOffset?
   let mut candidate := target_sec.section_size
   for idx in [:SectionHeaderTableEntry.sh_size symshte / SectionHeaderTableEntry.sh_entsize symshte] do
     match mkRawSymbolTableEntry?
-      symsec.section_body
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      symsec.section_body elffile.is64Bit elffile.isBigendian
       (idx * SectionHeaderTableEntry.sh_entsize symshte)
     with
     | .error _ => pure ()

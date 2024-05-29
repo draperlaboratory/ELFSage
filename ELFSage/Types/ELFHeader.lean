@@ -33,6 +33,8 @@ class ELFHeader (α : Type) where
   e_shnum    : α → Nat
   /-- Section header table entry for section name string table -/
   e_shstrndx : α → Nat
+  /-- Underlying ByteArray -/
+  bytes : α → ByteArray
 
 def ELFHeader.isBigendian [ELFHeader α] (eh : α) := let ⟨bytes, _⟩ := e_ident eh; bytes[0x5] == 2
 
@@ -62,37 +64,36 @@ def ELFHeader.ei_osabi_val [ELFHeader α] (eh : α) :=
   ELFHeader.ei_osabi.fromNat ei_osabi
   where ei_osabi := let ⟨bytes, _⟩ := e_ident eh; bytes[0x7].toNat
 
-private def ELFHeader.toString [ELFHeader α] (eh: α) : String :=
-  "ElfHeader {\n" ++
-  "  Ident {\n" ++
-  s!"    Magic: ({identAsHexLength2 0} {identAsHexLength2 1} {identAsHexLength2 2} {identAsHexLength2 3})\n" ++
-  s!"    Class: {ELFHeader.ei_class_val eh} (0x{identAsHex 4})\n" ++
-  s!"    DataEncoding: {ELFHeader.ei_data_val eh} (0x{identAsHex 5})\n" ++
-  s!"    FileVersion: {ident 6}\n" ++
-  s!"    OS/ABI: {ELFHeader.ei_osabi_val eh} (0x{identAsHex 7})\n" ++
-  s!"    ABIVersion: {ident 8}\n" ++
-  s!"    Unused: ({identAsHexLength2 9} {identAsHexLength2 10} {identAsHexLength2 11} {identAsHexLength2 12} {identAsHexLength2 13} {identAsHexLength2 14} {identAsHexLength2 15})\n" ++
-    "  }\n" ++
-  s!"  Type: {ELFHeader.e_type_val eh} (0x{toHex $ ELFHeader.e_type eh})\n" ++
-  s!"  Machine: {ELFHeader.e_machine_val eh} (0x{toHex $ ELFHeader.e_machine eh})\n" ++
-  s!"  Version: {ELFHeader.e_version eh}\n" ++
-  s!"  Entry: 0x{toHex $ ELFHeader.e_entry eh}\n" ++
-  s!"  ProgramHeaderOffset: 0x{toHex $ ELFHeader.e_phoff eh}\n" ++
-  s!"  SectionHeaderOffset: 0x{toHex $ ELFHeader.e_shoff eh}\n" ++
-  s!"  Flags [ (0x{toHex $ ELFHeader.e_flags eh})\n" ++
-    "  ]\n" ++
-  s!"  HeaderSize: {ELFHeader.e_ehsize eh}\n" ++
-  s!"  ProgramHeaderEntrySize: {ELFHeader.e_phentsize eh}\n" ++
-  s!"  ProgramHeaderCount: {ELFHeader.e_phnum eh}\n" ++
-  s!"  SectionHeaderEntrySize: {ELFHeader.e_shentsize eh}\n" ++
-  s!"  SectionHeaderCount: {ELFHeader.e_shnum eh}\n" ++
-  s!"  StringTableSectionIndex: {ELFHeader.e_shstrndx eh}\n" ++
-  "}"
-  where
-    ident (i : Fin 16) :=
-      (ELFHeader.e_ident eh).bytes.get ⟨ i, by simp [(ELFHeader.e_ident eh).sized] ⟩
-    identAsHex (i: Fin 16) := toHex (ident i).toNat
-    identAsHexLength2 (i: Fin 16) := toHexMinLength (ident i).toNat 2
+instance [ELFHeader α] : ToString α where
+  toString eh :=
+    let ident (i : Fin 16) := (ELFHeader.e_ident eh).bytes.get ⟨ i, by simp [(ELFHeader.e_ident eh).sized] ⟩
+    let identAsHex (i: Fin 16) := toHex (ident i).toNat
+    let identAsHexLength2 (i: Fin 16) := toHexMinLength (ident i).toNat 2
+    "ElfHeader {\n" ++
+    "  Ident {\n" ++
+    s!"    Magic: ({identAsHexLength2 0} {identAsHexLength2 1} {identAsHexLength2 2} {identAsHexLength2 3})\n" ++
+    s!"    Class: {ELFHeader.ei_class_val eh} (0x{identAsHex 4})\n" ++
+    s!"    DataEncoding: {ELFHeader.ei_data_val eh} (0x{identAsHex 5})\n" ++
+    s!"    FileVersion: {ident 6}\n" ++
+    s!"    OS/ABI: {ELFHeader.ei_osabi_val eh} (0x{identAsHex 7})\n" ++
+    s!"    ABIVersion: {ident 8}\n" ++
+    s!"    Unused: ({identAsHexLength2 9} {identAsHexLength2 10} {identAsHexLength2 11} {identAsHexLength2 12} {identAsHexLength2 13} {identAsHexLength2 14} {identAsHexLength2 15})\n" ++
+      "  }\n" ++
+    s!"  Type: {ELFHeader.e_type_val eh} (0x{toHex $ ELFHeader.e_type eh})\n" ++
+    s!"  Machine: {ELFHeader.e_machine_val eh} (0x{toHex $ ELFHeader.e_machine eh})\n" ++
+    s!"  Version: {ELFHeader.e_version eh}\n" ++
+    s!"  Entry: 0x{toHex $ ELFHeader.e_entry eh}\n" ++
+    s!"  ProgramHeaderOffset: 0x{toHex $ ELFHeader.e_phoff eh}\n" ++
+    s!"  SectionHeaderOffset: 0x{toHex $ ELFHeader.e_shoff eh}\n" ++
+    s!"  Flags [ (0x{toHex $ ELFHeader.e_flags eh})\n" ++
+      "  ]\n" ++
+    s!"  HeaderSize: {ELFHeader.e_ehsize eh}\n" ++
+    s!"  ProgramHeaderEntrySize: {ELFHeader.e_phentsize eh}\n" ++
+    s!"  ProgramHeaderCount: {ELFHeader.e_phnum eh}\n" ++
+    s!"  SectionHeaderEntrySize: {ELFHeader.e_shentsize eh}\n" ++
+    s!"  SectionHeaderCount: {ELFHeader.e_shnum eh}\n" ++
+    s!"  StringTableSectionIndex: {ELFHeader.e_shstrndx eh}\n" ++
+    "}"
 
 structure ELF64Header where
   /-- Identification field -/
@@ -125,24 +126,6 @@ structure ELF64Header where
   e_shstrndx : elf64_half
   deriving Repr
 
-instance : ELFHeader ELF64Header where
-  e_ident eh      := eh.e_ident
-  e_type eh       := eh.e_type.toNat
-  e_machine eh    := eh.e_machine.toNat
-  e_version eh    := eh.e_version.toNat
-  e_entry eh      := eh.e_entry.toNat
-  e_phoff eh      := eh.e_phoff.toNat
-  e_shoff eh      := eh.e_shoff.toNat
-  e_flags eh      := eh.e_flags.toNat
-  e_ehsize eh     := eh.e_ehsize.toNat
-  e_phentsize eh  := eh.e_phentsize.toNat
-  e_phnum eh      := eh.e_phnum.toNat
-  e_shentsize eh  := eh.e_shentsize.toNat
-  e_shnum eh      := eh.e_shnum.toNat
-  e_shstrndx eh   := eh.e_shstrndx.toNat
-
-instance : ToString ELF64Header where toString eh := (ELFHeader.toString eh)
-
 /-- A simple parser for extracting an ELF64 header, just a test, no validation -/
 def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := {
   e_ident     := NByteArray.extract bs 0x10 (by omega),
@@ -168,6 +151,43 @@ def mkELF64Header (bs : ByteArray) (h : bs.size ≥ 0x40) : ELF64Header := {
 def mkELF64Header? (bs: ByteArray) : Except String ELF64Header :=
   if h : bs.size ≥ 0x40 then .ok $ mkELF64Header bs h
   else .error "We're looking for a 64 bit ELF header but there aren't enough bytes."
+
+def ELF64Header.bytes (eh : ELF64Header) : ByteArray :=
+  eh.e_ident.bytes ++
+  getBytes16 eh.e_type ++
+  getBytes16 eh.e_machine ++
+  getBytes32 eh.e_version ++
+  getBytes64 eh.e_entry ++
+  getBytes64 eh.e_phoff ++
+  getBytes64 eh.e_shoff ++
+  getBytes32 eh.e_flags ++
+  getBytes16 eh.e_ehsize ++
+  getBytes16 eh.e_phentsize ++
+  getBytes16 eh.e_phnum ++
+  getBytes16 eh.e_shentsize ++
+  getBytes16 eh.e_shnum ++
+  getBytes16 eh.e_shstrndx
+  where isBigEndian := eh.e_ident.get 0x5 (by omega) == 2
+        getBytes16 := if isBigEndian then UInt16.getBytesBEfrom else UInt16.getBytesLEfrom
+        getBytes32 := if isBigEndian then UInt32.getBytesBEfrom else UInt32.getBytesLEfrom
+        getBytes64 := if isBigEndian then UInt64.getBytesBEfrom else UInt64.getBytesLEfrom
+
+instance : ELFHeader ELF64Header where
+  e_ident eh      := eh.e_ident
+  e_type eh       := eh.e_type.toNat
+  e_machine eh    := eh.e_machine.toNat
+  e_version eh    := eh.e_version.toNat
+  e_entry eh      := eh.e_entry.toNat
+  e_phoff eh      := eh.e_phoff.toNat
+  e_shoff eh      := eh.e_shoff.toNat
+  e_flags eh      := eh.e_flags.toNat
+  e_ehsize eh     := eh.e_ehsize.toNat
+  e_phentsize eh  := eh.e_phentsize.toNat
+  e_phnum eh      := eh.e_phnum.toNat
+  e_shentsize eh  := eh.e_shentsize.toNat
+  e_shnum eh      := eh.e_shnum.toNat
+  e_shstrndx eh   := eh.e_shstrndx.toNat
+  bytes eh        := eh.bytes
 
 structure ELF32Header where
   /-- Identification field -/
@@ -200,24 +220,6 @@ structure ELF32Header where
   e_shstrndx : elf32_half
   deriving Repr
 
-instance : ELFHeader ELF32Header where
-  e_ident eh      := eh.e_ident
-  e_type eh       := eh.e_type.toNat
-  e_machine eh    := eh.e_machine.toNat
-  e_version eh    := eh.e_version.toNat
-  e_entry eh      := eh.e_entry.toNat
-  e_phoff eh      := eh.e_phoff.toNat
-  e_shoff eh      := eh.e_shoff.toNat
-  e_flags eh      := eh.e_flags.toNat
-  e_ehsize eh     := eh.e_ehsize.toNat
-  e_phentsize eh  := eh.e_phentsize.toNat
-  e_phnum eh      := eh.e_phnum.toNat
-  e_shentsize eh  := eh.e_shentsize.toNat
-  e_shnum eh      := eh.e_shnum.toNat
-  e_shstrndx eh   := eh.e_shstrndx.toNat
-
-instance : ToString ELF32Header where toString eh := (ELFHeader.toString eh)
-
 /-- A simple parser for extracting an ELF32 header, just a test, no validation -/
 def mkELF32Header (bs : ByteArray) (h : bs.size ≥ 0x34) : ELF32Header := {
   e_ident     := NByteArray.extract bs 0x10 (by omega),
@@ -243,6 +245,42 @@ def mkELF32Header? (bs: ByteArray) : Except String ELF32Header :=
   if h : bs.size ≥ 0x34 then .ok $ mkELF32Header bs h
   else .error "We're looking for a 32 bit ELF header but there aren't enough bytes."
 
+def ELF32Header.bytes (eh : ELF32Header) : ByteArray :=
+  eh.e_ident.bytes ++
+  getBytes16 eh.e_type ++
+  getBytes16 eh.e_machine ++
+  getBytes32 eh.e_version ++
+  getBytes32 eh.e_entry ++
+  getBytes32 eh.e_phoff ++
+  getBytes32 eh.e_shoff ++
+  getBytes32 eh.e_flags ++
+  getBytes16 eh.e_ehsize ++
+  getBytes16 eh.e_phentsize ++
+  getBytes16 eh.e_phnum ++
+  getBytes16 eh.e_shentsize ++
+  getBytes16 eh.e_shnum ++
+  getBytes16 eh.e_shstrndx
+  where isBigEndian := eh.e_ident.get 0x5 (by omega) == 2
+        getBytes16 := if isBigEndian then UInt16.getBytesBEfrom else UInt16.getBytesLEfrom
+        getBytes32 := if isBigEndian then UInt32.getBytesBEfrom else UInt32.getBytesLEfrom
+
+instance : ELFHeader ELF32Header where
+  e_ident eh      := eh.e_ident
+  e_type eh       := eh.e_type.toNat
+  e_machine eh    := eh.e_machine.toNat
+  e_version eh    := eh.e_version.toNat
+  e_entry eh      := eh.e_entry.toNat
+  e_phoff eh      := eh.e_phoff.toNat
+  e_shoff eh      := eh.e_shoff.toNat
+  e_flags eh      := eh.e_flags.toNat
+  e_ehsize eh     := eh.e_ehsize.toNat
+  e_phentsize eh  := eh.e_phentsize.toNat
+  e_phnum eh      := eh.e_phnum.toNat
+  e_shentsize eh  := eh.e_shentsize.toNat
+  e_shnum eh      := eh.e_shnum.toNat
+  e_shstrndx eh   := eh.e_shstrndx.toNat
+  bytes eh        := eh.bytes
+
 inductive RawELFHeader :=
   | elf32 : ELF32Header → RawELFHeader
   | elf64 : ELF64Header → RawELFHeader
@@ -263,8 +301,7 @@ instance : ELFHeader RawELFHeader where
   e_shentsize eh  := match eh with | .elf64 eh => eh.e_shentsize.toNat | .elf32 eh => eh.e_shentsize.toNat
   e_shnum eh      := match eh with | .elf64 eh => eh.e_shnum.toNat     | .elf32 eh => eh.e_shnum.toNat
   e_shstrndx eh   := match eh with | .elf64 eh => eh.e_shstrndx.toNat  | .elf32 eh => eh.e_shstrndx.toNat
-
-instance : ToString RawELFHeader where toString eh := (ELFHeader.toString eh)
+  bytes eh        := match eh with | .elf64 eh => eh.bytes             | .elf32 eh => eh.bytes
 
 def mkRawELFHeader? (bs : ByteArray) : Except String RawELFHeader :=
   if h : bs.size < 5 then throw "Can't determine if this is a 32 or 64 bit binary (not enough bytes)."

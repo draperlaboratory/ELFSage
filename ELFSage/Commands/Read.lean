@@ -3,7 +3,6 @@ import ELFSage.Util.Cli
 import ELFSage.Types.File
 import ELFSage.Types.ELFHeader
 import ELFSage.Types.ProgramHeaderTable
-import ELFSage.Constants.SectionHeaderTable
 import ELFSage.Types.SectionHeaderTable
 import ELFSage.Types.SymbolTable
 import ELFSage.Types.StringTable
@@ -53,9 +52,7 @@ def printSymbolsForSection
     IO.print s!"Symbol {idx}: "
     let offset := idx * SectionHeaderTableEntry.sh_entsize shte
     match mkRawSymbolTableEntry?
-      sec.section_body
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      sec.section_body elffile.is64Bit elffile.isBigendian
       offset
     with
     | .error warn => IO.println warn
@@ -74,9 +71,9 @@ def getSymbolNameInSection
   : Except String String :=
     let offset := symidx * SectionHeaderTableEntry.sh_entsize shte
     match mkRawSymbolTableEntry?
-      (sec.section_body)
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      sec.section_body
+      elffile.is64Bit
+      elffile.isBigendian
       offset
     with
     | .error warn => .error warn
@@ -116,8 +113,8 @@ def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) :=
     let offset := idx * SectionHeaderTableEntry.sh_entsize symshte
     let ste ← mkRawSymbolTableEntry?
       symsec.section_body
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      elffile.is64Bit
+      elffile.isBigendian
       offset
     SymbolTableEntry.toBody? ste elffile
   with
@@ -133,8 +130,8 @@ def printDynamics (elffile : RawELFFile) :=
     let offset := idx * SectionHeaderTableEntry.sh_entsize shte
     match mkRawDynamicEntry?
       sec.section_body
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      elffile.is64Bit
+      elffile.isBigendian
       offset
     with
     | .error e => IO.println s!"warning: {e}"
@@ -153,9 +150,9 @@ def printNotes
       | 0 => pure ()
       | spaceminus + 1 => --we work with space-1 to automatically prove termination
         match mkRawNoteEntry?
-          (sec.section_body)
-          (ELFHeader.isBigendian elffile)
-          (ELFHeader.is64Bit elffile)
+          sec.section_body
+          elffile.isBigendian
+          elffile.is64Bit
           offset
         with
         | .error e => IO.println e
@@ -182,14 +179,14 @@ def printRelocationA
     IO.print s!"Relocation {idx}: "
     let offset := idx * SectionHeaderTableEntry.sh_entsize shte
     match mkRawRelocationA?
-      (sec.section_body)
-      (ELFHeader.is64Bit elffile)
-      (ELFHeader.isBigendian elffile)
+      sec.section_body
+      elffile.is64Bit
+      elffile.isBigendian
       offset
     with
     | .error warn => IO.println warn
     | .ok ra =>
-      let r_sym := if (ELFHeader.is64Bit elffile)
+      let r_sym := if elffile.is64Bit
         then (RelocationA.ra_info ra) / 2^32
         else (RelocationA.ra_info ra) / 2^8
       match elffile.getRawSectionHeaderTableEntries[linkedSymbolNames]? with

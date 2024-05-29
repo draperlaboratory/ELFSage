@@ -1,4 +1,3 @@
-
 def ByteArray.getUInt64BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 :=
   (bs.get ⟨offset + 0, by omega⟩).toUInt64 <<< 0x38 |||
   (bs.get ⟨offset + 1, by omega⟩).toUInt64 <<< 0x30 |||
@@ -121,6 +120,10 @@ def ByteArray.getEntriesFrom
 structure NByteArray (n : Nat) where
   bytes: ByteArray
   sized: bytes.size = n
+
+def NByteArray.get {n : Nat} (bs : NByteArray n) (m: Nat) (p: m < n) :=
+  have size := bs.sized
+  bs.bytes.get ⟨m, by omega⟩
 
 instance : Repr (NByteArray n) where
   reprPrec nbs := reprPrec $ nbs.bytes.toList.map λbyte ↦
@@ -612,12 +615,12 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   rw [show size = 2^32 by decide]
   repeat rw [Nat.mod_pow_lt_inner]
   all_goals try decide
-  suffices val =
-      (val >>> 24 % 2^8) <<< 24 |||
-      (val >>> 16 % 2^8) <<< 16 |||
-      (val >>> 8 % 2^8)  <<< 8  |||
-      val % 2^8
-    by
+  suffices
+    val = (val >>> 24 % 2^8) <<< 24 |||
+          (val >>> 16 % 2^8) <<< 16 |||
+          (val >>> 8 % 2^8)  <<< 8  |||
+          val % 2^8
+  by
     have eq : val % 2^32 = val % 2^32 := by rfl
     conv at eq => rhs; rw [this]
     conv at eq => lhs; rw [Nat.mod_eq_of_lt lt₁]

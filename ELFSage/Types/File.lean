@@ -142,6 +142,10 @@ def RawELFFile.getRawELFHeader : RawELFFile → RawELFHeader
   | .elf32 elffile => .elf32 elffile.file_header
   | .elf64 elffile => .elf64 elffile.file_header
 
+def RawELFFile.isBigendian (elffile : RawELFFile) := ELFHeader.isBigendian elffile.getRawELFHeader
+
+def RawELFFile.is64Bit (elffile : RawELFFile) := ELFHeader.is64Bit elffile.getRawELFHeader
+
 /--
 Get the section of type SHT_SYMTAB.
 There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
@@ -162,22 +166,6 @@ def RawELFFile.getDynamicSymbolTable? (elffile : RawELFFile)
   where noSymTable := .error "No symbol table present, no st_size given, can't guess byte range"
         dynamicSymbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
           SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_DYNSYM
-
-instance : ELFHeader RawELFFile where
-  e_ident ef      := ELFHeader.e_ident ef.getRawELFHeader
-  e_type ef       := ELFHeader.e_type ef.getRawELFHeader
-  e_machine ef    := ELFHeader.e_machine ef.getRawELFHeader
-  e_version ef    := ELFHeader.e_version ef.getRawELFHeader
-  e_entry ef      := ELFHeader.e_entry ef.getRawELFHeader
-  e_phoff ef      := ELFHeader.e_phoff ef.getRawELFHeader
-  e_shoff ef      := ELFHeader.e_shoff ef.getRawELFHeader
-  e_flags ef      := ELFHeader.e_flags ef.getRawELFHeader
-  e_ehsize ef     := ELFHeader.e_ehsize ef.getRawELFHeader
-  e_phentsize ef  := ELFHeader.e_phentsize ef.getRawELFHeader
-  e_phnum ef      := ELFHeader.e_phnum ef.getRawELFHeader
-  e_shentsize ef  := ELFHeader.e_shentsize ef.getRawELFHeader
-  e_shnum ef      := ELFHeader.e_shnum ef.getRawELFHeader
-  e_shstrndx ef   := ELFHeader.e_shstrndx ef.getRawELFHeader
 
 private def getProgramHeaderType (n: Nat) := match n with
   -- TODO: Finish populating this list of magic numbers, it is incomplete.
