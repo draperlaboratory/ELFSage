@@ -71,6 +71,24 @@ def readCmd : Cmd := `[Cli|
       targetBinary : System.FilePath; "elf-file"
 ]
 
+def addSpaceCmd : Cli.Cmd := `[Cli|
+  addSpace VIA runAddSpaceCmd; ["0.0.0"]
+  "Add new program header table entries"
+
+  ARGS:
+      targetBinary : System.FilePath; "The ELF binary to be analyzed"
+      outPath : System.FilePath; "The path for the resulting modified binary"
+      count : Nat; "The number of entries to add"
+]
+
+def patchCmd : Cmd := `[Cli|
+  patch NOOP; ["0.0.0"]
+  "Apply some transformation to an ELF file"
+
+  SUBCOMMANDS:
+      addSpaceCmd
+]
+
 def mainCmd : Cmd := `[Cli|
   elfSage NOOP; ["0.0.0"]
   "An ELF validator"
@@ -78,6 +96,7 @@ def mainCmd : Cmd := `[Cli|
   SUBCOMMANDS:
       hexDumpCmd;
       readCmd;
+      patchCmd;
       validateCmd
 ]
 
