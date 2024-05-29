@@ -3,6 +3,10 @@ import Cli
 
 open Cli
 
+def getHelp (p : Cli.Parsed): IO UInt32 := do
+  p.printHelp
+  return 0
+
 def hexDumpCmd : Cmd := `[Cli|
   hexdump VIA runHexDumpCmd; ["0.0.0"]
   "hexdump, but in Lean!"
@@ -82,7 +86,7 @@ def addSpaceCmd : Cli.Cmd := `[Cli|
 ]
 
 def patchCmd : Cmd := `[Cli|
-  patch NOOP; ["0.0.0"]
+  patch VIA getHelp; ["0.0.0"]
   "Apply some transformation to an ELF file"
 
   SUBCOMMANDS:
@@ -90,7 +94,7 @@ def patchCmd : Cmd := `[Cli|
 ]
 
 def mainCmd : Cmd := `[Cli|
-  elfSage NOOP; ["0.0.0"]
+  elfSage VIA getHelp; ["0.0.0"]
   "An ELF validator"
 
   SUBCOMMANDS:
