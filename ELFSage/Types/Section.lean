@@ -39,6 +39,7 @@ instance : SectionHeaderTableEntry InterpretedSection where
   sh_info sh      := sh.section_info
   sh_addralign sh := sh.section_align
   sh_entsize sh   := sh.section_entsize
+  bytes sh _      := sh.section_body
 
 def SectionHeaderTableEntry.toSection?
   [SectionHeaderTableEntry α]
