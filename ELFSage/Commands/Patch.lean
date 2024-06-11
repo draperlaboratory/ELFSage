@@ -80,5 +80,27 @@ def runNoopCmd (p : Cli.Parsed) : IO UInt32 := do
 
   return 0
 
-def runAddSpaceCmd (_ : Cli.Parsed): IO UInt32 := do
-  return 1
+def RawELFFile.pushProgramHeadersToEnd (elffile : RawELFFile) : RawELFFile :=
+  match elffile with
+  | .elf32 elffile =>
+    let new_header := { elffile.file_header with e_phoff := cur_size.toUInt32 }
+    .elf32 { elffile with file_header:= new_header }
+  | .elf64 elffile =>
+    let new_header := { elffile.file_header with e_phoff := cur_size.toUInt64}
+    .elf64 { elffile with file_header := new_header }
+  where cur_size := getFileSize elffile
+
+def runAddSpaceCmd (p : Cli.Parsed): IO UInt32 := do
+  let targetBinary := (p.positionalArg! "targetBinary").as! System.FilePath
+  let outPath := (p.positionalArg! "outPath").as! System.FilePath
+  let bytes ← IO.FS.readBinFile targetBinary
+
+  match mkRawELFFile? bytes with
+  | .error warn => IO.println warn *> return 1
+  | .ok elffile => do
+
+  let outBytes ← RawELFFile.serialize (elffile.pushProgramHeadersToEnd)
+
+  IO.FS.writeBinFile outPath outBytes
+
+  return 0
