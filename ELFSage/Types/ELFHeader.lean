@@ -64,6 +64,12 @@ def ELFHeader.ei_osabi_val [ELFHeader α] (eh : α) :=
   ELFHeader.ei_osabi.fromNat ei_osabi
   where ei_osabi := let ⟨bytes, _⟩ := e_ident eh; bytes[0x7].toNat
 
+def ELFHeader.sh_end [ELFHeader α] (eh : α) :=
+  ELFHeader.e_shoff eh + ELFHeader.e_shentsize eh * ELFHeader.e_shnum eh
+
+def ELFHeader.ph_end [ELFHeader α] (eh : α) :=
+  ELFHeader.e_phoff eh + ELFHeader.e_phentsize eh * ELFHeader.e_phnum eh
+
 instance [ELFHeader α] : ToString α where
   toString eh :=
     let ident (i : Fin 16) := (ELFHeader.e_ident eh).bytes.get ⟨ i, by simp [(ELFHeader.e_ident eh).sized] ⟩

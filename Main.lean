@@ -85,11 +85,21 @@ def addSpaceCmd : Cli.Cmd := `[Cli|
       count : Nat; "The number of entries to add"
 ]
 
+def noopCmd : Cli.Cmd := `[Cli|
+  noop VIA runNoopCmd; ["0.0.0"]
+  "Add new program header table entries"
+
+  ARGS:
+      targetBinary : System.FilePath; "The ELF binary to be analyzed"
+      outPath : System.FilePath; "The path for the resulting modified binary"
+]
+
 def patchCmd : Cmd := `[Cli|
   patch VIA getHelp; ["0.0.0"]
   "Apply some transformation to an ELF file"
 
   SUBCOMMANDS:
+      noopCmd;
       addSpaceCmd
 ]
 

@@ -23,6 +23,9 @@ class ProgramHeaderTableEntry (α : Type) where
   /-- Underlying Bytes, requires Endianness --/
   bytes    : α → (isBigendian : Bool) → ByteArray
 
+def ProgramHeaderTableEntry.ph_end [ProgramHeaderTableEntry α] (ph : α) :=
+  p_offset ph + p_filesz ph
+
 -- Alignment requirements from man 5 elf
 -- For now, we assumpe 4K as page size. For future reference:
 -- https://stackoverflow.com/questions/3351940/detecting-the-memory-page-size

@@ -1,5 +1,6 @@
 import Cli
 import ELFSage.Util.Cli
+import ELFSage.Util.IO
 import ELFSage.Types.File
 import ELFSage.Types.ELFHeader
 import ELFSage.Types.ProgramHeaderTable
@@ -90,17 +91,6 @@ def printStringsForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   | .none => IO.println s!"There doesn't appear to be a section header {idx}"
   | .some ⟨_, sec⟩ => for byte in sec.section_body  do
       if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
-
-def dumpBytesAsHex (bytes : ByteArray) : IO Unit := do
-    let mut idx := 0
-    for byte in bytes do
-      if idx % 8 == 0 then do IO.print " "
-      if idx % 16 == 0 then do IO.print "\n"
-      IO.print $ (Nat.toDigits 16 (byte.toNat))
-        |> (λl ↦ if l.length == 1 then '0' :: l else l)
-        |> List.asString
-      IO.print " "
-      idx ← pure $ idx + 1
 
 def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   match elffile.getRawSectionHeaderTableEntries[idx]? with

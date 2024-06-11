@@ -28,6 +28,9 @@ class SectionHeaderTableEntry (α : Type) where
   /-- Underlying Bytes, requires Endianness --/
   bytes        : α → (isBigendian : Bool) → ByteArray
 
+def SectionHeaderTableEntry.sh_end [SectionHeaderTableEntry α] (shte : α) :=
+  sh_offset shte + sh_size shte
+
 def SectionHeaderTableEntry.getSectionNames
   (shstrndx : Nat)
   [SectionHeaderTableEntry α] (sht : List α)
