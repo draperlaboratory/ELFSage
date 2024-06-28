@@ -192,18 +192,12 @@ def Dynamic.Tag.toFieldInterpretation
 class DynamicEntry (α : Type) where
   d_tag : α → Int
   d_un  : α → DynamicUnion Nat Nat
+  bytes : α → (isBigendian : Bool) → ByteArray
 
 structure ELF32DynamicEntry where
   d_tag  : elf32_sword
   d_un   : DynamicUnion elf32_word elf32_addr
   deriving Repr
-
-instance : DynamicEntry ELF32DynamicEntry where
-  d_tag de := de.d_tag.toInt
-  d_un de := match de.d_un with
-    | .d_val v => .d_val v.toNat
-    | .d_ptr p => .d_ptr p.toNat
-    | .d_ignored bs => .d_ignored bs
 
 def mkELF32DynamicEntry?
   (isBigEndian : Bool)
@@ -224,17 +218,23 @@ def mkELF32DynamicEntry?
   where
     getUInt32from := if isBigEndian then bs.getUInt32BEfrom else bs.getUInt32LEfrom
 
-structure ELF64DynamicEntry where
-  d_tag  : elf64_sxword
-  d_un   : DynamicUnion elf64_xword elf64_addr
-  deriving Repr
+def ELF32DynamicEntry.bytes (de : ELF32DynamicEntry) (isBigEndian : Bool) :=
+  let union_bytes := match de.d_un with | .d_val b => getBytes32 b | .d_ptr b => getBytes32 b | .d_ignored bytes => bytes
+  getBytes32 de.d_tag.bytes ++ union_bytes
+  where getBytes32 := if isBigEndian then UInt32.getBytesBEfrom else UInt32.getBytesLEfrom
 
-instance : DynamicEntry ELF64DynamicEntry where
+instance : DynamicEntry ELF32DynamicEntry where
   d_tag de := de.d_tag.toInt
   d_un de := match de.d_un with
     | .d_val v => .d_val v.toNat
     | .d_ptr p => .d_ptr p.toNat
     | .d_ignored bs => .d_ignored bs
+  bytes de := de.bytes
+
+structure ELF64DynamicEntry where
+  d_tag  : elf64_sxword
+  d_un   : DynamicUnion elf64_xword elf64_addr
+  deriving Repr
 
 def mkELF64DynamicEntry?
   (isBigEndian : Bool)
@@ -254,6 +254,19 @@ def mkELF64DynamicEntry?
   | .error e => .error e
   where
     getUInt64from := if isBigEndian then bs.getUInt64BEfrom else bs.getUInt64LEfrom
+
+def ELF64DynamicEntry.bytes (de : ELF64DynamicEntry) (isBigEndian : Bool) :=
+  let union_bytes := match de.d_un with | .d_val b => getBytes64 b | .d_ptr b => getBytes64 b | .d_ignored bytes => bytes
+  getBytes64 de.d_tag.bytes ++ union_bytes
+  where getBytes64 := if isBigEndian then UInt64.getBytesBEfrom else UInt64.getBytesLEfrom
+
+instance : DynamicEntry ELF64DynamicEntry where
+  d_tag de := de.d_tag.toInt
+  d_un de := match de.d_un with
+    | .d_val v => .d_val v.toNat
+    | .d_ptr p => .d_ptr p.toNat
+    | .d_ignored bs => .d_ignored bs
+  bytes de := de.bytes
 
 inductive RawDynamicEntry :=
   | elf64 : ELF64DynamicEntry → RawDynamicEntry
