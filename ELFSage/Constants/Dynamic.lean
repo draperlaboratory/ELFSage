@@ -74,6 +74,29 @@ def Dynamic.Tag.DT_LOOS : Nat := 0x6000000D
 /-- [dt_loos] and [dt_hios]: this inclusive range is reserved for OS-specific semantics. -/
 def Dynamic.Tag.DT_HIOS : Nat := 0x6ffff000
 /-- [dt_loproc] and [dt_hiproc]: this inclusive range is reserved for processor specific semantics. -/
-def Dynamic.Tag.DT_LOPROC : Nat := 0x70000000 
+def Dynamic.Tag.DT_LOPROC : Nat := 0x70000000
 /-- [dt_loproc] and [dt_hiproc]: this inclusive range is reserved for processor specific semantics. -/
 def Dynamic.Tag.DT_HIPROC : Nat := 0x7fffffff
+
+def Dynamic.Tag.GNU.DT_GNU_ADDRRNGHI  : Nat := 0x6ffffeff
+def Dynamic.Tag.GNU.DT_GNU_ADDRRNGLO  : Nat := 0x6ffffe00
+def Dynamic.Tag.GNU.DT_GNU_AUXILIARY  : Nat := 0x7ffffffd
+def Dynamic.Tag.GNU.DT_GNU_FILTER     : Nat := 0x7fffffff
+def Dynamic.Tag.GNU.DT_GNU_NUM        : Nat := 32 -- ??? this is from linksem, they're confused by it too
+def Dynamic.Tag.GNU.DT_GNU_POSFLAG_1  : Nat := 0x6ffffdfd
+def Dynamic.Tag.GNU.DT_GNU_RELCOUNT   : Nat := 0x6ffffffa
+def Dynamic.Tag.GNU.DT_GNU_RELACOUNT  : Nat := 0x6FFFFFF9
+def Dynamic.Tag.GNU.DT_GNU_SYMINENT   : Nat := 0x6ffffdff
+def Dynamic.Tag.GNU.DT_GNU_SYMINFO    : Nat := 0x6ffffeff
+def Dynamic.Tag.GNU.DT_GNU_SYMINSZ    : Nat := 0x6ffffdfe
+def Dynamic.Tag.GNU.DT_GNU_VALRNGHI   : Nat := 0x6ffffdff
+def Dynamic.Tag.GNU.DT_GNU_VALRNGLO   : Nat := 0x6ffffd00
+def Dynamic.Tag.GNU.DT_GNU_VERDEF     : Nat := 0x6ffffffc
+def Dynamic.Tag.GNU.DT_GNU_VERDEFNUM  : Nat := 0x6ffffffd
+def Dynamic.Tag.GNU.DT_GNU_VERNEED    : Nat := 0x6ffffffe
+def Dynamic.Tag.GNU.DT_GNU_VERNEEDNUM : Nat := 0x6fffffff
+def Dynamic.Tag.GNU.DT_GNU_VERSYM     : Nat := 0x6ffffff0
+def Dynamic.Tag.GNU.DT_GNU_HASH       : Nat := 0x6ffffef5
+def Dynamic.Tag.GNU.DT_GNU_FLAGS_1    : Nat := 0x6ffffffb
+def Dynamic.Tag.GNU.DT_GNU_CHECKSUM   : Nat := 0x6FFFFDF8
+def Dynamic.Tag.GNU.DT_GNU_PRELINKED  : Nat := 0x6FFFFDF5
