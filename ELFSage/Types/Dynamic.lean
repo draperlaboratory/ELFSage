@@ -91,9 +91,30 @@ inductive Dynamic.Tag where
   /-- [dt_loproc] and [dt_hiproc]: this inclusive range is reserved for processor specific semantics. -/
   | dt_unknown (n : Int) : Dynamic.Tag
 
+/-- GNU Dynamic Tag Extensions -/
+inductive Dynamic.Tag.GNU
+| dt_gnu_auxiliary          : Dynamic.Tag.GNU
+| dt_gnu_filter             : Dynamic.Tag.GNU
+| dt_gnu_num                : Dynamic.Tag.GNU
+| dt_gnu_posflag_1          : Dynamic.Tag.GNU
+| dt_gnu_relcount           : Dynamic.Tag.GNU
+| dt_gnu_relacount          : Dynamic.Tag.GNU
+| dt_gnu_syminent           : Dynamic.Tag.GNU
+| dt_gnu_syminfo            : Dynamic.Tag.GNU
+| dt_gnu_syminsz            : Dynamic.Tag.GNU
+| dt_gnu_verdef             : Dynamic.Tag.GNU
+| dt_gnu_verdefnum          : Dynamic.Tag.GNU
+| dt_gnu_verneed            : Dynamic.Tag.GNU
+| dt_gnu_verneednum         : Dynamic.Tag.GNU
+| dt_gnu_versym             : Dynamic.Tag.GNU
+| dt_gnu_hash               : Dynamic.Tag.GNU
+| dt_gnu_flags_1            : Dynamic.Tag.GNU
+| dt_gnu_checksum           : Dynamic.Tag.GNU
+| dt_gnu_prelinked          : Dynamic.Tag.GNU
+
 section open Dynamic.Tag
 
-def Dynamic.Tag.mkRawTag (x : Int) :  Dynamic.Tag :=
+def Dynamic.Tag.mkRawTag (x : Int) : Dynamic.Tag :=
  if x == DT_NULL then .dt_null
  else if x == DT_NEEDED then .dt_needed
  else if x == DT_PLTRELSZ then .dt_pltrelsz
@@ -130,6 +151,27 @@ def Dynamic.Tag.mkRawTag (x : Int) :  Dynamic.Tag :=
  else if x >= DT_LOOS ∧ DT_LOOS <= DT_LOOS then .dt_loos_hios x.toNat
  else if x >= DT_LOPROC ∧ x <= DT_LOOS then .dt_loproc_hiproc x.toNat
  else .dt_unknown x
+
+def Dynamic.Tag.GNU.mkRawTag (x : Int) : Except String Dynamic.Tag.GNU :=
+  if x == GNU.DT_GNU_AUXILIARY  then .ok .dt_gnu_auxiliary
+  else if x == GNU.DT_GNU_FILTER     then .ok .dt_gnu_filter
+  else if x == GNU.DT_GNU_NUM        then .ok .dt_gnu_num
+  else if x == GNU.DT_GNU_POSFLAG_1  then .ok .dt_gnu_posflag_1
+  else if x == GNU.DT_GNU_RELCOUNT   then .ok .dt_gnu_relcount
+  else if x == GNU.DT_GNU_RELACOUNT  then .ok .dt_gnu_relacount
+  else if x == GNU.DT_GNU_SYMINENT   then .ok .dt_gnu_syminent
+  else if x == GNU.DT_GNU_SYMINFO    then .ok .dt_gnu_syminfo
+  else if x == GNU.DT_GNU_SYMINSZ    then .ok .dt_gnu_syminsz
+  else if x == GNU.DT_GNU_VERDEF     then .ok .dt_gnu_verdef
+  else if x == GNU.DT_GNU_VERDEFNUM  then .ok .dt_gnu_verdefnum
+  else if x == GNU.DT_GNU_VERNEED    then .ok .dt_gnu_verneed
+  else if x == GNU.DT_GNU_VERNEEDNUM then .ok .dt_gnu_verneednum
+  else if x == GNU.DT_GNU_VERSYM     then .ok .dt_gnu_versym
+  else if x == GNU.DT_GNU_HASH       then .ok .dt_gnu_hash
+  else if x == GNU.DT_GNU_FLAGS_1    then .ok .dt_gnu_flags_1
+  else if x == GNU.DT_GNU_CHECKSUM   then .ok .dt_gnu_checksum
+  else if x == GNU.DT_GNU_PRELINKED  then .ok .dt_gnu_prelinked
+  else .error "No corresponding GNU dynamic tag found"
 
 end
 
@@ -189,6 +231,30 @@ def Dynamic.Tag.toFieldInterpretation
     then .ok .d_ptr
     else .error s!"unknown dynamic tag prevents interpretation of dt_un"
 
+-- based on https://github.com/rems-project/linksem/blob/238f803b18e485eecbc550e0e2292257eaf7029b/src/gnu_extensions/gnu_ext_dynamic.lem#L199
+def Dynamic.Tag.GNU.toFieldInterpretation
+  (dt : Dynamic.Tag.GNU)
+  : Dynamic.FieldInterpretation :=
+  match dt with
+  | dt_gnu_auxiliary  => .d_val
+  | dt_gnu_filter     => .d_val
+  | dt_gnu_num        => .d_ignored
+  | dt_gnu_posflag_1  => .d_val
+  | dt_gnu_relcount   => .d_val
+  | dt_gnu_relacount  => .d_val
+  | dt_gnu_syminent   => .d_val
+  | dt_gnu_syminfo    => .d_ptr
+  | dt_gnu_syminsz    => .d_val
+  | dt_gnu_verdef     => .d_ptr
+  | dt_gnu_verdefnum  => .d_val
+  | dt_gnu_verneed    => .d_ptr
+  | dt_gnu_verneednum => .d_val
+  | dt_gnu_versym     => .d_ptr
+  | dt_gnu_hash       => .d_ptr
+  | dt_gnu_flags_1    => .d_val
+  | dt_gnu_checksum   => .d_val
+  | dt_gnu_prelinked  => .d_val
+
 class DynamicEntry (α : Type) where
   d_tag : α → Int
   d_un  : α → DynamicUnion Nat Nat
@@ -208,7 +274,7 @@ def mkELF32DynamicEntry?
   let tagval := getUInt32from (offset + 0x0) (by omega)
   let rawTag := Dynamic.Tag.mkRawTag (⟨tagval⟩ : SInt32).toInt
   match rawTag.toFieldInterpretation
-      (λ_ => .error "os reserved tag, not implemented")
+      (λx => Dynamic.Tag.GNU.mkRawTag x >>= pure ∘ Dynamic.Tag.GNU.toFieldInterpretation)
       (λ_ => .error "proc reserved tag, not implemented")
   with
   | .ok .d_val => .ok { d_tag := ⟨tagval⟩, d_un := .d_val $ getUInt32from (offset + 0x4) (by omega) }
@@ -245,7 +311,7 @@ def mkELF64DynamicEntry?
   let tagval := getUInt64from (offset + 0x00) (by omega)
   let rawTag := Dynamic.Tag.mkRawTag (⟨tagval⟩ : SInt64).toInt
   match rawTag.toFieldInterpretation
-      (λ_ => .error "os reserved tag, not implemented")
+      (λx => Dynamic.Tag.GNU.mkRawTag x >>= pure ∘ Dynamic.Tag.GNU.toFieldInterpretation)
       (λ_ => .error "proc reserved tag, not implemented")
   with
   | .ok .d_val => .ok { d_tag := ⟨tagval⟩, d_un := .d_val $ getUInt64from (offset + 0x08) (by omega) }

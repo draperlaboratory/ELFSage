@@ -3,6 +3,7 @@ import ELFSage.Util.Cli
 import ELFSage.Util.IO
 import ELFSage.Types.File
 import ELFSage.Types.Relocation
+import ELFSage.Types.Dynamic
 import ELFSage.Constants.SectionHeaderTable
 import ELFSage.Commands.Read
 
@@ -163,6 +164,32 @@ def shift_rel_64 (shift : elf64_off → elf64_off) (isBigendian : Bool) (bytes :
     | .some rel => rel.bytes isBigendian ++ acc
     ByteArray.empty
 
+inductive DynWrapper (A C : Type)
+| ok : A → DynWrapper A C
+| none : DynWrapper A C
+| skip : C → DynWrapper A C
+
+def shift_dyn_64 (shift : elf64_off → elf64_off) (isBigendian : Bool) (bytes : ByteArray) : ByteArray :=
+  let split_bytes := (List.range (bytes.size / 0x10)).map $ λn ↦ bytes.extract (n * 0x10) ((n + 1) * 0x10)
+  let make_dyn (b : ByteArray) := if h: b.size ≥ 0x10 then match mkELF64DynamicEntry? isBigendian b 0 h with
+  | .ok dyn => DynWrapper.ok dyn
+  | .error _ => DynWrapper.skip b
+  else DynWrapper.none
+  let mdyns  := split_bytes.map make_dyn
+  let mdyns_shifted := mdyns.map λmdyn ↦ match mdyn with
+    | .ok dyn => DynWrapper.ok { dyn with d_un := match dyn.d_un with
+      | .d_val v => .d_val v
+      | .d_ptr p => .d_ptr $ shift p
+      | .d_ignored bs => .d_ignored bs
+    }
+    | .none => DynWrapper.none
+    | .skip (b : ByteArray) => .skip b
+  mdyns_shifted.foldr λmdyn acc ↦ match mdyn with
+    | .none => (List.replicate 0x10 0).toByteArray ++ acc
+    | .ok dyn => dyn.bytes isBigendian ++ acc
+    | .skip b => b ++ acc
+    ByteArray.empty
+
 def RawELFFile.expandPHDRSegment (elffile : RawELFFile) : Option RawELFFile :=
   let isBigendian := isBigendian elffile
   match elffile with
@@ -189,7 +216,6 @@ def RawELFFile.expandPHDRSegment (elffile : RawELFFile) : Option RawELFFile :=
               p_vaddr := shift_if_after_phdr phte.p_vaddr,
               p_paddr := shift_if_after_phdr phte.p_paddr,
             }, seg)
-
 
     -- We generate a new set of contents for the program header table based on
     -- our rewritten table
@@ -229,7 +255,7 @@ def RawELFFile.expandPHDRSegment (elffile : RawELFFile) : Option RawELFFile :=
       else if shte.sh_type.toNat == ELFSectionHeaderTableEntry.Type.SHT_REL then
         (new_shte, { sec with section_body := shift_rel_64 shift_if_after_phdr isBigendian sec.section_body})
       else if shte.sh_type.toNat == ELFSectionHeaderTableEntry.Type.SHT_DYNAMIC then
-        (new_shte, sec) --todo
+        (new_shte, { sec with section_body := shift_dyn_64 shift_if_after_phdr isBigendian sec.section_body})
       else
       (new_shte, sec)
 
