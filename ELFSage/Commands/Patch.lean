@@ -280,7 +280,11 @@ def runAddSpaceCmd (p : Cli.Parsed): IO UInt32 := do
   | .error warn => IO.println warn *> return 1
   | .ok elffile => do
 
-  match elffile.expandPHDRSegment with
+  --XXX: this is maybe not ideally modular. addDummyProgramHeader adds a null
+  --header to the intepreted segments map in the lean-level ELF data, but it
+  --doesn't actually rewrite the program header table contents — that happens
+  --inside of expandPHDRSegment. Could this be resequenced more elegantly?
+  match elffile.addDummyProgramHeader.expandPHDRSegment with
   | .none => IO.println "target binary appears to not contain a program header table" *> return 1
   | .some newFile => do
 
