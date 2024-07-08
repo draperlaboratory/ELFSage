@@ -274,17 +274,24 @@ def RawELFFile.expandPHDRSegment (elffile : RawELFFile) : Option RawELFFile :=
 def runAddSpaceCmd (p : Cli.Parsed): IO UInt32 := do
   let targetBinary := (p.positionalArg! "targetBinary").as! System.FilePath
   let outPath := (p.positionalArg! "outPath").as! System.FilePath
+  let count := (p.positionalArg! "count").as! Nat
   let bytes ← IO.FS.readBinFile targetBinary
 
   match mkRawELFFile? bytes with
   | .error warn => IO.println warn *> return 1
   | .ok elffile => do
 
+  let mut elffile := elffile
+  let mut idx := 0
+  while idx < count do
+    idx := idx + 1
+    elffile := elffile.addDummyProgramHeader
+
   --XXX: this is maybe not ideally modular. addDummyProgramHeader adds a null
   --header to the intepreted segments map in the lean-level ELF data, but it
   --doesn't actually rewrite the program header table contents — that happens
   --inside of expandPHDRSegment. Could this be resequenced more elegantly?
-  match elffile.addDummyProgramHeader.expandPHDRSegment with
+  match elffile.expandPHDRSegment with
   | .none => IO.println "target binary appears to not contain a program header table" *> return 1
   | .some newFile => do
 
