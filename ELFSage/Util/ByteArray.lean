@@ -175,6 +175,7 @@ theorem Array.extract_len_aux {src: Array α} :
      intro lt
      simp; split
      · have : n + l + 1 ≤ size src := by omega
+       simp only [Array.data_length] at ih
        rw [ih (l + 1) (push dst src[l]) this]
        simp_arith
      · omega
@@ -202,38 +203,34 @@ def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArr
         split; simp; contradiction
       rw [this, this]
       have : ∀α, ∀a b : Array α, (a ++ b).size = a.size + b.size := by
-        simp [Array.size]
+        simp only [Array.append_data, Array.size, List.length_append, implies_true]
       rw [this, this]
       simp
       have :  0 + (min n (List.length bs.data.data)) ≤ bs.size := by
         rw [Nat.min_def]
         split <;> omega
       rw [Array.extract_loop_len (min n (List.length bs.data.data)) 0 #[]]
-      simp [Nat.min_def, ByteArray.size, Array.size] at *
+      simp only [ByteArray.size, Array.size,
+                 ge_iff_le, Array.append_data,
+                 List.length_append, implies_true,
+                 Nat.min_def, Nat.zero_add,
+                 Array.data_toArray, List.length_nil,
+                 Nat.add_zero, ite_eq_left_iff, Nat.not_le]
+        at *
       · omega
       · simp [Nat.min_def]; split
         · assumption
-        · simp [Nat.min_def, ByteArray.size, Array.size] at *
+        · simp only [ByteArray.size, Array.size,
+                     ge_iff_le, Array.append_data,
+                     List.length_append, implies_true,
+                     Nat.min_def, Nat.zero_add,
+                     Nat.not_le, Nat.le_refl]
+            at *
     ⟨bytes, proof⟩
 
 theorem UInt16.ByteArray_size : ∀ i : UInt16, i.getBytesBEfrom.size = 2 := by
   intro i
   simp [UInt16.getBytesBEfrom, ByteArray.size]
-
-theorem UInt16.eq_of_val_eq : ∀{i j : UInt16}, i.val = j.val → i = j
-  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
-
-theorem UInt32.eq_of_val_eq : ∀{i j : UInt32}, i.val = j.val → i = j
-  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
-
-theorem UInt16.val_eq_of_eq : ∀{i j : UInt16}, i = j → i.val = j.val
-  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
-
-theorem UInt8.eq_of_val_eq : ∀{i j : UInt8}, i.val = j.val → i = j
-  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
-
-theorem UInt8.val_eq_of_eq : ∀{i j : UInt8}, i = j → i.val = j.val
-  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
 
 theorem UInt8_to_UInt16_round: ∀{i : UInt8}, i.toUInt16.toUInt8 = i := by
   rintro ⟨i⟩
@@ -244,18 +241,14 @@ theorem UInt8_to_UInt16_round: ∀{i : UInt8}, i.toUInt16.toUInt8 = i := by
   apply Fin.eq_of_val_eq
   simp [Fin.ofNat, UInt16.toNat, UInt8.toUInt16, Nat.toUInt16, UInt16.ofNat, UInt8.toNat]
   unfold UInt8.size at lt
-  simp_arith
-  apply Nat.mod_eq_of_lt
-  exact lt
+  omega
 
 theorem UInt16_to_UInt8_round: ∀{i : UInt16}, i.toUInt8.toUInt16 = i % 256:= by
   rintro ⟨i⟩
   simp [UInt8.toUInt16, Nat.toUInt16, UInt16.ofNat, HMod.hMod, instHMod, Mod.mod, UInt16.mod]
   apply UInt16.eq_of_val_eq
-  simp [Fin.ofNat, UInt8.toNat, UInt16.toUInt8, Nat.toUInt8, UInt8.ofNat, UInt8.toNat, UInt16.toNat, Fin.mod]
-  apply Nat.mod_eq_of_lt
-  have : ↑i % 256 < 256 := @Nat.mod_lt ↑i 256 (by omega)
-  omega
+  simp only [UInt16.toUInt8, Nat.toUInt8, UInt8.ofNat, Fin.ofNat, Nat.succ_eq_add_one,
+    Nat.reduceAdd, UInt16.toNat, Fin.mod, Nat.reduceMod]
 
 theorem Nat.bitwise_sum : ∀{n m k : Nat}, m % 2^n = 0 → k < 2^n → m ||| k = m + k := by
   intro n m k eq lt
@@ -335,8 +328,8 @@ theorem UInt16.nullShift : ∀{i : UInt16}, i >>> 0 = i := by
   intro i; lower_to_nat i; apply Nat.mod_eq_of_lt; assumption
 
 @[simp]
-theorem Nat.bitwise_zero_left : bitwise f 0 m = if f false true then m else 0 :=
-  rfl
+theorem Nat.bitwise_zero_left : bitwise f 0 m = if f false true then m else 0 := by
+  simp only [bitwise, ↓reduceIte]
 
 @[simp]
 theorem Nat.bitwise_zero_right : bitwise f n 0 = if f true false then n else 0 := by
@@ -364,8 +357,10 @@ private theorem Nat.bitwise_dist_lem : f false false = false → 2 * Nat.bitwise
   intro hyp
   unfold bitwise; split <;> split <;> try split <;> try split <;> try split
   all_goals try simp_all
-  case inr.inr.inr.inr or₁ or₂ or₃ or₄ => simp_arith; (conv => rhs; unfold bitwise); simp_all
-  all_goals (rename_i or₁ or₂ or₃ or₄; exfalso; apply or₁; cases Nat.mul_eq_zero.mp or₃ <;> simp_all)
+  all_goals try omega
+  (conv => rhs; unfold bitwise)
+  simp_all only [ite_false]
+  apply Nat.two_mul
 
 theorem Nat.mod_pow_zero : n % m^(succ k) = 0 → n % m = 0 := by
   intro hyp
@@ -418,114 +413,24 @@ theorem Nat.shiftLeft_mod : w + m ≥ k → (n % 2^w) <<< m % 2^k = n <<< m % 2^
 
 --TODO: this should generalize to arbitrary bitwise ops.
 theorem Nat.bitwise_mod : Nat.bitwise or m n % 2^k = Nat.bitwise or (m % 2^k) (n % 2^k) := by
-  revert n m
-  induction k
-  case zero => simp [Nat.mod_one]
-  case succ k k_ih =>
-  intro v n
-  unfold bitwise; split <;> split <;> try split <;> try split <;> try split
-  all_goals try simp_all <;> split
-  all_goals repeat rewrite [show ∀{x}, x + x = 2 * x by simp_arith]
-  all_goals rewrite [Nat.pow_succ]
-  all_goals try split
-  case inr.inr.inl.inl.inr or₁ or₂ or₃ or₄ =>
-    conv => lhs; lhs; rw [Nat.mul_comm]
-    rw [Nat.mul_mod_mul_right]
-    have veven : v % 2 = 0 := Nat.mod_pow_zero or₃
-    have neven : n % 2 = 0 := by
-      cases Nat.mod_two_eq_zero_or_one n
-      · assumption
-      · exfalso; apply or₄; apply Or.inr; assumption
-    have : v / 2 % 2 ^ k = 0 := by
-      apply Nat.mul_right_cancel (show 0 < 2 by decide)
-      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-      assumption
-      apply Nat.dvd_of_mod_eq_zero veven
-    simp [k_ih, this]
-    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-    apply Nat.dvd_of_mod_eq_zero neven
-  case inr.inr.inl.inl.inr or₁ or₂ or₃ or₄ =>
-    conv => lhs; lhs; rw [Nat.mul_comm]
-    rw [Nat.mul_mod_mul_right]
-    have veven : v % 2 = 0 := by
-      cases Nat.mod_two_eq_zero_or_one v
-      · assumption
-      · exfalso; apply or₄; apply Or.inl; assumption
-    have neven : n % 2 = 0 := Nat.mod_pow_zero or₃
-    have : n / 2 % 2 ^ k = 0 := by
-      apply Nat.mul_right_cancel (show 0 < 2 by decide)
-      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-      assumption
-      apply Nat.dvd_of_mod_eq_zero neven
-    simp [k_ih, this]
-    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-    apply Nat.dvd_of_mod_eq_zero veven
-  case inr.inr.inl.inl.inl or₁ or₂ or₃ or₄ =>
-    conv => lhs; lhs; rw [Nat.mul_comm]
-    conv => lhs; rw [←Nat.mod_add_mod]
-    rw [Nat.mul_mod_mul_right]
-    have veven : v % 2 = 0 := Nat.mod_pow_zero or₃
-    have nodd : n % 2 = 1 := by
-      cases or₄
-      · rw [veven] at *; contradiction
-      · assumption
-    have : v / 2 % 2 ^ k = 0 := by
-      apply Nat.mul_right_cancel (show 0 < 2 by decide)
-      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-      assumption
-      apply Nat.dvd_of_mod_eq_zero veven
-    simp [k_ih, this]
-    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ]
-    rw [Nat.add_comm, Nat.add_mod_mod]
-    rw [Nat.add_comm, Nat.mul_comm, ←nodd, Nat.div_add_mod]
-  case inr.inr.inr.inl.inl.inl or₁ or₂ or₃ or₄ or₅ =>
-    conv => lhs; lhs; rw [Nat.mul_comm]
-    conv => lhs; rw [←Nat.mod_add_mod]
-    rw [Nat.mul_mod_mul_right]
-    have neven : n % 2 = 0 := Nat.mod_pow_zero or₄
-    have vodd : v % 2 = 1 := by
-      cases or₅
-      · assumption
-      · rw [neven] at *; contradiction
-    have : n / 2 % 2 ^ k = 0 := by
-      apply Nat.mul_right_cancel (show 0 < 2 by decide)
-      rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ, Nat.div_mul_cancel]
-      assumption
-      apply Nat.dvd_of_mod_eq_zero neven
-    simp [k_ih, this]
-    rw [←Nat.mul_mod_mul_right, ←Nat.pow_succ]
-    rw [Nat.add_comm, Nat.add_mod_mod]
-    rw [Nat.add_comm, Nat.mul_comm, ←vodd, Nat.div_add_mod]
-  case inr.inr.inr.inr.inl.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
-    rw [Nat.add_mod]
-    rw [Nat.mul_comm]
-    rw [Nat.mul_mod_mul_right]
-    repeat rw [Nat.mod_mul_left_div_self]
-    rw [←k_ih]
-    simp_arith
-    have modsmall : bitwise or (v / 2) (n / 2) % 2 ^ k < 2 ^ k := by
-      apply Nat.mod_lt
-      apply Nat.pow_pos
-      trivial
-    have : ∀{n}, n < 2^k → n * 2 + 1 < 2^k * 2 := by
-      intro n hyp
-      have : n + 1 ≤ 2^k := Nat.succ_le.mpr hyp
-      have : (n + 1) * 2 ≤ 2^k * 2 := Nat.mul_le_mul_right 2 this
-      apply Nat.lt_of_lt_of_le _ this
-      simp_arith
-    have : (bitwise or (v / 2) (n / 2) % 2 ^ k * 2 + 1) < (2 ^ k * 2) := this modsmall
-    rw [Nat.mod_eq_of_lt this]
-    simp_arith
-  case inr.inr.inr.inr.inl.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
-    exfalso; apply or₆; simp; assumption
-  case inr.inr.inr.inr.inr.inl or₁ or₂ or₃ or₄ or₅ or₆ =>
-    exfalso; apply or₅; simp at or₆; assumption
-  case inr.inr.inr.inr.inr.inr or₁ or₂ or₃ or₄ or₅ or₆ =>
-    rw [Nat.mul_comm]
-    rw [Nat.mul_mod_mul_right]
-    repeat rw [Nat.mod_mul_left_div_self]
-    rw [←k_ih]
-    simp_arith
+  apply Nat.eq_of_testBit_eq
+  intro i
+  simp only [testBit_mod_two_pow]
+  have h_m := @Nat.mod_lt m (2^k) (by exact Nat.two_pow_pos k)
+  have h_n := @Nat.mod_lt n (2^k) (by exact Nat.two_pow_pos k)
+  by_cases h : i < k
+  case pos =>
+    simp only [h, decide_True, Bool.true_and]
+    rw [@testBit_bitwise or (by simp only [Bool.or_self]) (m % 2^k) (n % 2^k) i]
+    rw [@testBit_bitwise or (by simp only [Bool.or_self]) m n i]
+    simp only [testBit_mod_two_pow, h, decide_True, Bool.true_and]
+  case neg =>
+    simp only [h, decide_False, Bool.false_and, Bool.false_eq]
+    have h_k_i : 2^k <= 2^i := by
+      apply Nat.pow_le_pow_of_le (by omega) (by omega)
+    generalize h_x : (bitwise or (m % 2 ^ k) (n % 2 ^ k)) = x
+    have h_lt := @bitwise_lt_two_pow (m % 2^k) k (n % 2^k) or h_m h_n
+    apply testBit_lt_two_pow (by omega)
 
 theorem Nat.bitwise_or_mod : (m ||| n) % 2^k = m % 2^k ||| n % 2^k := by
   simp [HOr.hOr]; apply Nat.bitwise_mod
@@ -642,11 +547,11 @@ theorem UInt32.shiftUnshift : ∀(i  : UInt32),
   rw [
     this,
     Nat.shiftRight_add val 16 8,
-    ←Nat.shiftLeft_shiftLeft _ 8 16,
+    Nat.shiftLeft_add _ 8 16,
     ←Nat.shiftLeft_distribute,
     ←Nat.splitBytes,
     Nat.shiftRight_add val 8 8,
-    ←Nat.shiftLeft_shiftLeft _ 8 8,
+    Nat.shiftLeft_add _ 8 8,
     ←Nat.shiftLeft_distribute,
     ←Nat.splitBytes,
     ←Nat.splitBytes
