@@ -38,11 +38,12 @@ def SymbolTableEntry.getTarget? [SymbolTableEntry α] (ste : α) (elffile : RawE
           errSpecialSection := .error "special section, not implemented"
 
 /-- A symbol's st_value field can mean either an offset in a section, in
-a relocatable file, or an intended virtual address in memory, in an executable.
+  a relocatable file, or an intended virtual address in memory in an executable
+  or a shared object file.
 This computes the section offset for a symbol -/
 def SymbolTableEntry.getSectionOffset?  [SymbolTableEntry α] (ste : α) (elffile : RawELFFile) : Except String Nat := do
   match ELFHeader.e_type_val elffile.getRawELFHeader with
-  | .et_exec => do
+  | .et_exec | .et_dyn => do
     let ⟨_, target_sec⟩ ← SymbolTableEntry.getTarget? ste elffile
     return SymbolTableEntry.st_value ste - target_sec.section_addr
   | _ => return SymbolTableEntry.st_value ste
