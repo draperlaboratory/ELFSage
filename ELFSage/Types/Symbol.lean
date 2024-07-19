@@ -86,3 +86,57 @@ def SymbolTableEntry.toBody?
   if lastByte > target_sec.section_body.size
   then .error "the address calculated for this symbol doesn't correspond to anything in the binary"
   else .ok $ target_sec.section_body.extract firstByte lastByte
+
+
+def RawELFFile.symbolNameByLinkAndOffset
+  (elffile : RawELFFile)
+  (linkIdx: Nat)
+  (offset : Nat)
+  : Except String String :=
+  match elffile.getRawSectionHeaderTableEntries[linkIdx]? with
+  | .none => .error "The section the symbol table references for names doesn't exist"
+  | .some ⟨_, sec⟩ => .ok $ (ELFStringTable.mk sec.section_body).stringAt offset
+
+/- Get the name and symbol table entry of the `symidx`-th symbol, given the
+symbol table's section header `shte` and section `sec`. -/
+def RawELFFile.getSymbolTableEntryInSection
+  (elffile : RawELFFile)
+  (shte : RawSectionHeaderTableEntry)
+  (sec : InterpretedSection)
+  (symidx : Nat)
+  : Except String (String × RawSymbolTableEntry) := do
+  let offset := symidx * SectionHeaderTableEntry.sh_entsize shte
+  let ste ← mkRawSymbolTableEntry? sec.section_body elffile.is64Bit elffile.isBigendian offset
+  let sym_name ← symbolNameByLinkAndOffset elffile
+    (SectionHeaderTableEntry.sh_link shte)
+    (SymbolTableEntry.st_name ste)
+  .ok (sym_name, ste)
+
+/- Return the symbol table entry corresponding to a symbol `symname`, if it
+exists, between entries with index greater than or equal to `symidx` and less
+than `maxidx`. -/
+def RawELFFile.findSymbolTableEntryInSection
+  (elffile : RawELFFile)
+  (symidx maxidx : Nat)
+  (shte : RawSectionHeaderTableEntry)
+  (sec : InterpretedSection)
+  (symname : String)
+  : Except String RawSymbolTableEntry := do
+  if symidx >= maxidx then throw s!"Symbol {symname} not found!"
+  else do
+    let (str, ste) ← getSymbolTableEntryInSection elffile shte sec symidx
+    if str == symname then return ste
+    findSymbolTableEntryInSection elffile (symidx + 1) maxidx shte sec symname
+  termination_by (maxidx - symidx)
+
+/- Get the `st_value` of the symbol `symbolname` and its contents
+(as a `ByteArray`). -/
+def RawELFFile.getSymbolContents (elffile : RawELFFile) (symbolname : String)  :
+  Except String (Nat × ByteArray) := do
+  let (shte, sec) ← elffile.getSymbolTable?
+  let entry_size := SectionHeaderTableEntry.sh_entsize shte
+  let table_size := SectionHeaderTableEntry.sh_size shte
+  let total_entries := table_size / entry_size
+  let ste ← findSymbolTableEntryInSection elffile 0 total_entries shte sec symbolname
+  let bytes ← SymbolTableEntry.toBody? ste elffile
+  .ok (SymbolTableEntry.st_value ste, bytes)

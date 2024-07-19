@@ -35,15 +35,6 @@ def checkImplemented (p: Cli.Parsed) : Except String Unit := do
 
   return ()
 
-def symbolNameByLinkAndOffset
-  (elffile : RawELFFile)
-  (linkIdx: Nat)
-  (offset : Nat)
-  : Except String String :=
-  match elffile.getRawSectionHeaderTableEntries[linkIdx]? with
-  | .none => .error "The section the symbol table references for names doesn't exist"
-  | .some ⟨_, sec⟩ => .ok $ (ELFStringTable.mk sec.section_body).stringAt offset
-
 /- Prints all the symbols in the section with header `sectionHeaderEnt` -/
 def printSymbolsForSection
   (elffile : RawELFFile)
