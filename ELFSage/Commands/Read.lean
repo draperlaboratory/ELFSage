@@ -49,7 +49,7 @@ def printSymbolsForSection
     with
     | .error warn => IO.println warn
     | .ok ste =>
-      match symbolNameByLinkAndOffset elffile (SectionHeaderTableEntry.sh_link shte) (SymbolTableEntry.st_name ste) with
+      match RawELFFile.symbolNameByLinkAndOffset elffile (SectionHeaderTableEntry.sh_link shte) (SymbolTableEntry.st_name ste) with
       | .ok name => IO.print s!"{name}\n"
       | .error warn => IO.print s!"??? - {warn}\n"
       IO.println $ repr ste
@@ -69,7 +69,7 @@ def getSymbolNameInSection
       offset
     with
     | .error warn => .error warn
-    | .ok ste => symbolNameByLinkAndOffset
+    | .ok ste => RawELFFile.symbolNameByLinkAndOffset
       elffile (SectionHeaderTableEntry.sh_link shte) (SymbolTableEntry.st_name ste)
 
 def printSymbolsForSectionType (elffile: RawELFFile) (ent_type : Nat) :=
