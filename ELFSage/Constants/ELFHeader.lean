@@ -1,7 +1,11 @@
 import ELFSage.Util.Hex
 /- ELF File Types -/
 
-/- ELf file classes.  The file format is designed to be portable among machines
+structure NatGreaterThan (n : Nat) where
+  val  : Nat
+  isGt : LT.lt n val
+
+/- ELF file classes.  The file format is designed to be portable among machines
 of various sizes, without imposing the sizes of the largest machine on the
 smallest. The class of the file defines the basic types used by the data
 structures of the object file container itself. -/
@@ -13,26 +17,44 @@ inductive ELFHeader.ei_class.values where
   /-- 64-bit architecture --/
   | elfclass64 : ELFHeader.ei_class.values
   /-- unknown data encoding --/
-  | elfclass_other : Nat → ELFHeader.ei_class.values
+  | elfclass_other : NatGreaterThan 2 → ELFHeader.ei_class.values
 
-def ELFHeader.ei_class.fromNat : Nat → ELFHeader.ei_class.values
-  | 0 => .elfclassnone
-  | 1 => .elfclass32
-  | 2 => .elfclass64
-  | n => .elfclass_other n
+def ELFHeader.ei_class.fromNat (n: Nat) : ELFHeader.ei_class.values :=
+  if h : n ≤ 2 then
+    match n with
+    | 0 => .elfclassnone
+    | 1 => .elfclass32
+    | 2 => .elfclass64
+  else
+    .elfclass_other ⟨n, by omega⟩
 
 def ELFHeader.ei_class.toNat : ELFHeader.ei_class.values → Nat
   | .elfclassnone     => 0
   | .elfclass32       => 1
   | .elfclass64       => 2
-  | .elfclass_other n => n
+  | .elfclass_other n => n.1
 
 instance : ToString (ELFHeader.ei_class.values) where
   toString
   | .elfclassnone     => "None"
   | .elfclass32       => "32-bit"
   | .elfclass64       => "64-bit"
-  | .elfclass_other n => s!"Unrecognized ei_class: 0x{Hex.toHex n}"
+  | .elfclass_other n => s!"Unrecognized ei_class: 0x{Hex.toHex n.1}"
+
+theorem ELFHeader.ei_class.fromNat_of_toNat (n : Nat) :
+    ELFHeader.ei_class.toNat (ELFHeader.ei_class.fromNat n) = n := by
+  simp [ELFHeader.ei_class.fromNat, ELFHeader.ei_class.toNat]
+  by_cases h : n = 0; rw [h]; simp
+  by_cases h : n = 1; rw [h]; simp
+  by_cases h : n = 2; rw [h]; simp
+  have h : ¬ n ≤ 2 := (by omega); simp [h]
+
+theorem ELFHeader.ei_class.toNat_of_fromNat (v : ELFHeader.ei_class.values) :
+    ELFHeader.ei_class.fromNat (ELFHeader.ei_class.toNat v) = v := by
+  simp [ELFHeader.ei_class.toNat, ELFHeader.ei_class.fromNat]
+  cases v with
+  | elfclass_other n => let _ := n.isGt; let hn : ¬ n.val ≤ 2 := (by omega); simp [hn]
+  | _ => simp
 
 inductive ELFHeader.ei_data.values where
   /-- invalid data encoding --/
