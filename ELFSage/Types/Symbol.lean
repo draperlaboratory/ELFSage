@@ -126,7 +126,7 @@ def RawELFFile.findSymbolTableEntryInSection
   else do
     let (str, ste) ← getSymbolTableEntryInSection elffile shte sec symidx
     if str == symname then return ste
-    findSymbolTableEntryInSection elffile (symidx + 1) maxidx shte sec symname
+    else findSymbolTableEntryInSection elffile (symidx + 1) maxidx shte sec symname
   termination_by (maxidx - symidx)
 
 /- Get the `st_value` of the symbol `symbolname` and its contents
