@@ -165,7 +165,7 @@ instance : Repr ByteArray where
 
 theorem Array.extract_len_aux {src: Array α} :
    ∀b l dst, (b + l ≤ src.size) →
-   List.length (Array.extract.loop src b l dst).data = b + dst.size:= by
+   List.length (Array.extract.loop src b l dst).toList = b + dst.size:= by
    intro b
    induction b
    case zero => simp [Array.extract.loop]
@@ -175,7 +175,7 @@ theorem Array.extract_len_aux {src: Array α} :
      intro lt
      simp; split
      · have : n + l + 1 ≤ size src := by omega
-       simp only [Array.data_length] at ih
+       simp only [Array.toList_length] at ih
        rw [ih (l + 1) (push dst src[l]) this]
        simp_arith
      · omega
@@ -203,25 +203,27 @@ def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArr
         split; simp; contradiction
       rw [this, this]
       have : ∀α, ∀a b : Array α, (a ++ b).size = a.size + b.size := by
-        simp only [Array.append_data, Array.size, List.length_append, implies_true]
+        simp only [Array.append_toList, Array.size, List.length_append, implies_true]
       rw [this, this]
       simp
-      have :  0 + (min n (List.length bs.data.data)) ≤ bs.size := by
+      have : bs.data.size = bs.size := by
+        simp [ByteArray.size]
+      have :  (min n (List.length bs.toList)) + 0 ≤ bs.data.size := by
         rw [Nat.min_def]
         split <;> omega
-      rw [Array.extract_loop_len (min n (List.length bs.data.data)) 0 #[]]
+      rw [Array.extract_loop_len (min n bs.data.size) 0 #[]]
       simp only [ByteArray.size, Array.size,
-                 ge_iff_le, Array.append_data,
+                 ge_iff_le, Array.append_toList,
                  List.length_append, implies_true,
                  Nat.min_def, Nat.zero_add,
-                 Array.data_toArray, List.length_nil,
+                 Array.toList_toArray, List.length_nil,
                  Nat.add_zero, ite_eq_left_iff, Nat.not_le]
         at *
       · omega
       · simp [Nat.min_def]; split
         · assumption
         · simp only [ByteArray.size, Array.size,
-                     ge_iff_le, Array.append_data,
+                     ge_iff_le, Array.append_toList,
                      List.length_append, implies_true,
                      Nat.min_def, Nat.zero_add,
                      Nat.not_le, Nat.le_refl]
