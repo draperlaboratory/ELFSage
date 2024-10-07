@@ -175,8 +175,9 @@ theorem Array.extract_len_aux {src: Array α} :
      intro lt
      simp; split
      · have : n + l + 1 ≤ size src := by omega
-       simp only [Array.toList_length] at ih
-       rw [ih (l + 1) (push dst src[l]) this]
+       specialize ih (l + 1) (push dst src[l]) this
+       simp at ih
+       rw [ih]
        simp_arith
      · omega
 
@@ -202,9 +203,6 @@ def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArr
         unfold Array.extract.loop
         split; simp; contradiction
       rw [this, this]
-      have : ∀α, ∀a b : Array α, (a ++ b).size = a.size + b.size := by
-        simp only [Array.append_toList, Array.size, List.length_append, implies_true]
-      rw [this, this]
       simp
       have : bs.data.size = bs.size := by
         simp [ByteArray.size]
@@ -213,7 +211,7 @@ def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArr
         split <;> omega
       rw [Array.extract_loop_len (min n bs.data.size) 0 #[]]
       simp only [ByteArray.size, Array.size,
-                 ge_iff_le, Array.append_toList,
+                 ge_iff_le, Array.toList_append,
                  List.length_append, implies_true,
                  Nat.min_def, Nat.zero_add,
                  Array.toList_toArray, List.length_nil,
@@ -223,7 +221,7 @@ def NByteArray.extract (bs : ByteArray) (n : Nat) (h : bs.size ≥ n) : NByteArr
       · simp [Nat.min_def]; split
         · assumption
         · simp only [ByteArray.size, Array.size,
-                     ge_iff_le, Array.append_toList,
+                     ge_iff_le, Array.toList_append,
                      List.length_append, implies_true,
                      Nat.min_def, Nat.zero_add,
                      Nat.not_le, Nat.le_refl]
