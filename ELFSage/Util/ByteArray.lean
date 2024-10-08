@@ -1,5 +1,3 @@
-import Std.Tactic.BVDecide
-
 def ByteArray.getUInt64BEfrom (bs : ByteArray) (offset : Nat) (h: bs.size - offset ≥ 8) : UInt64 :=
   (bs.get ⟨offset + 0, by omega⟩).toUInt64 <<< 0x38 |||
   (bs.get ⟨offset + 1, by omega⟩).toUInt64 <<< 0x30 |||
