@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  # Run using manual triggers from GitHub UI:
+  # https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+  workflow_dispatch: {}
+  # Run on every push:
+  push: {}
+  # Run on pull request activity:
+  pull_request: {}
+
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest] 
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - uses: leanprover/lean-action@v1
+      with:
+        auto-config: false
+        use-mathlib-cache: false
+        use-github-cache: true
+
+    - name: Run test suite
+      run: |
+          lake exe test  | grep "PASS"
