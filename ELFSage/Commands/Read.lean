@@ -72,6 +72,8 @@ def getSymbolNameInSection
     | .ok ste => RawELFFile.symbolNameByLinkAndOffset
       elffile (SectionHeaderTableEntry.sh_link shte) (SymbolTableEntry.st_name ste)
 
+--TODO find? might be more appropriate than filter here.
+
 def printSymbolsForSectionType (elffile: RawELFFile) (ent_type : Nat) :=
   let ofType := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
     SectionHeaderTableEntry.sh_type shte == ent_type
@@ -86,6 +88,18 @@ def printStringsForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
 def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   match elffile.getRawSectionHeaderTableEntries[idx]? with
   | .none => IO.println s!"There doesn't appear to be a section header {idx}"
+  | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
+
+def printHexForSectionName (elffile : RawELFFile) (name : String) :=
+  match elffile.getSectionHeaderStringTable? with
+  | .error err => IO.println err
+  | .ok (_,shstrtab_sec) =>
+  let shstrtab : ELFStringTable := ⟨shstrtab_sec.section_body⟩
+  let offset := shstrtab.stringToOffset name
+  let findPred : RawSectionHeaderTableEntry × InterpretedSection → Bool := (λent => SectionHeaderTableEntry.sh_name ent.fst == offset)
+  let msec := elffile.getRawSectionHeaderTableEntries.find? findPred
+  match msec with
+  | .none => IO.println s!"There doesn't appear to be a section header named {name}"
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
 def printHexForSymbolIdx (elffile : RawELFFile) (idx : Nat) :=
@@ -239,8 +253,10 @@ def runReadCmd (p : Cli.Parsed): IO UInt32 := do
       | none => IO.println "couldn't parse section number provided for string dump"
       | some idx => printStringsForSectionIdx elffile idx
     | "hex-dump" => match flag.as? Nat with
-      | none => IO.println "couldn't parse section number provided for hex dump"
       | some idx => printHexForSectionIdx elffile idx
+      | none => match flag.as? String with
+        | some name => printHexForSectionName elffile name
+        | none => IO.println "couldn't parse section provided for hex dump"
     | "sym-dump" => match flag.as? Nat with
       | none => IO.println "couldn't parse symbol number provided for hex dump"
       | some idx => printHexForSymbolIdx elffile idx

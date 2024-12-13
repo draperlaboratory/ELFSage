@@ -61,7 +61,7 @@ def readCmd : Cmd := `[Cli|
     c,  "archive-index";        "Display the symbol/file index in an archive"
     D,  "use-dynamic";          "Use the dynamic section info when displaying symbols"
     L,  "lint";                 "Display warning messages for possible problems"
-    x,  "hex-dump" : Nat;       "hex-dump=<number|name>. " ++
+    x,  "hex-dump" : String;       "hex-dump=<number|name>. " ++
                                 "Dump the contents of section <number|name> as bytes"
     p,  "string-dump" : Nat;    "--string-dump=<number|name>. " ++
                                 "Dump the contents of section <number|name> as strings"

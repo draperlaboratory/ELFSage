@@ -142,6 +142,8 @@ def RawELFFile.getRawELFHeader : RawELFFile → RawELFHeader
   | .elf32 elffile => .elf32 elffile.file_header
   | .elf64 elffile => .elf64 elffile.file_header
 
+-- TODO Perhaps just make ELFFile an ELFHeader instance
+
 def RawELFFile.isBigendian (elffile : RawELFFile) := ELFHeader.isBigendian elffile.getRawELFHeader
 
 def RawELFFile.is64Bit (elffile : RawELFFile) := ELFHeader.is64Bit elffile.getRawELFHeader
@@ -156,6 +158,17 @@ def RawELFFile.getSymbolTable? (elffile : RawELFFile)
   where noSymTable := .error "No symbol table present, no st_size given, can't guess byte range"
         symbolSections := elffile.getRawSectionHeaderTableEntries.filter $ λ⟨shte, _⟩↦
           SectionHeaderTableEntry.sh_type shte == ELFSectionHeaderTableEntry.Type.SHT_SYMTAB
+
+/--
+Get the section .shstrtab. Defined by e_shstrndx in the ELF header and therefore unique
+-/
+def RawELFFile.getSectionHeaderStringTable? (elffile : RawELFFile)
+    : Except String (RawSectionHeaderTableEntry × InterpretedSection) :=
+    let sections := elffile.getRawSectionHeaderTableEntries
+    match sections[ELFHeader.e_shstrndx elffile.getRawELFHeader]? with
+    | none => .error "e_shstrndx in ELF header refers to a nonexistent section"
+    | some entry => .ok entry
+
 /--
 Get the section of type SHT_DYNSYM
 There's at most one: https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html
