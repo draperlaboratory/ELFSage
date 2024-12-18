@@ -85,20 +85,28 @@ def printStringsForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   | .some ⟨_, sec⟩ => for byte in sec.section_body  do
       if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
 
+def msecByName (elffile : RawELFFile) (name : String) : IO (Option (RawSectionHeaderTableEntry × InterpretedSection)) :=
+  match elffile.getSectionHeaderStringTable? with
+  | .error err => IO.println err *> return none
+  | .ok (_,shstrtab_sec) =>
+  let shstrtab : ELFStringTable := ⟨shstrtab_sec.section_body⟩
+  let offset := shstrtab.stringToOffset name
+  let findPred : RawSectionHeaderTableEntry × InterpretedSection → Bool := (λent => SectionHeaderTableEntry.sh_name ent.fst == offset)
+  return (elffile.getRawSectionHeaderTableEntries.find? findPred)
+
+def printStringsForSectionName (elffile : RawELFFile) (name : String) := do
+  match (← msecByName elffile name) with
+  | .none => IO.println s!"There doesn't appear to be a section header named {name}"
+  | .some ⟨_, sec⟩ => for byte in sec.section_body  do
+      if byte == 0 then IO.print '\n' else IO.print (Char.ofNat byte.toNat)
+
 def printHexForSectionIdx (elffile : RawELFFile) (idx : Nat) :=
   match elffile.getRawSectionHeaderTableEntries[idx]? with
   | .none => IO.println s!"There doesn't appear to be a section header {idx}"
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
-def printHexForSectionName (elffile : RawELFFile) (name : String) :=
-  match elffile.getSectionHeaderStringTable? with
-  | .error err => IO.println err
-  | .ok (_,shstrtab_sec) =>
-  let shstrtab : ELFStringTable := ⟨shstrtab_sec.section_body⟩
-  let offset := shstrtab.stringToOffset name
-  let findPred : RawSectionHeaderTableEntry × InterpretedSection → Bool := (λent => SectionHeaderTableEntry.sh_name ent.fst == offset)
-  let msec := elffile.getRawSectionHeaderTableEntries.find? findPred
-  match msec with
+def printHexForSectionName (elffile : RawELFFile) (name : String) := do
+  match (← msecByName elffile name) with
   | .none => IO.println s!"There doesn't appear to be a section header named {name}"
   | .some ⟨_, sec⟩ => dumpBytesAsHex sec.section_body
 
@@ -250,8 +258,10 @@ def runReadCmd (p : Cli.Parsed): IO UInt32 := do
       printSymbolsForSectionType elffile symtab
       --TODO fallback to DYNSYM when SYMTAB isn't present
     | "string-dump" => match flag.as? Nat with
-      | none => IO.println "couldn't parse section number provided for string dump"
       | some idx => printStringsForSectionIdx elffile idx
+      | none => match flag.as? String with
+        | some name => printStringsForSectionName elffile name
+        | none => IO.println "couldn't parse section number provided for string dump"
     | "hex-dump" => match flag.as? Nat with
       | some idx => printHexForSectionIdx elffile idx
       | none => match flag.as? String with
